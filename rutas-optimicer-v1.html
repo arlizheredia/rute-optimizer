@@ -456,6 +456,7 @@
         overflow: hidden;
         border: 1px solid #e2e8f0;
         background: #f0f2f5;
+        z-index: 1;
         transition: height 0.3s ease, border-radius 0.3s ease;
       }
       #mapContainer.expanded {
@@ -468,10 +469,6 @@
         border-radius: 0;
         border: 0;
       }
-      #mapContainer.expanded #mapCanvas,
-      #mapContainer.expanded #mapCanvas .leaflet-container {
-        height: 100%;
-      }
       body.map-expanded {
         overflow: hidden;
       }
@@ -481,17 +478,26 @@
         }
       }
       #mapCanvas {
-        display: block;
         width: 100%;
         height: 100%;
-        min-height: 100%;
-        background: #e5e9f0;
+        background: #f0f0f0;
       }
-      #mapCanvas .leaflet-container {
-        width: 100%;
-        height: 100%;
-        font-family: "Segoe UI", Roboto, system-ui, sans-serif;
-        background: #e5e9f0;
+      .leaflet-container {
+        font-family: 'Segoe UI', Roboto, sans-serif !important;
+      }
+      .leaflet-popup-content-wrapper {
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        padding: 5px;
+      }
+      .leaflet-popup-content {
+        font-size: 13px;
+        font-weight: 500;
+        color: #1e293b;
+      }
+      /* Marcadores estilo moderno */
+      .leaflet-marker-icon {
+        transition: transform 0.2s ease;
       }
       .map-loading {
         position: absolute;
@@ -2424,27 +2430,23 @@
           boxZoom: true,
           keyboard: true,
           worldCopyJump: false,
-          minZoom: 10,
+          minZoom: 2,
           maxZoom: 19,
           zoomSnap: 1,
           zoomDelta: 1,
-        }).setView([20.02, -75.82], 13)
+        }).setView([20.03438, -75.85641], 14)
 
         var osmLayer = L.tileLayer(
-          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          "https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png",
           {
-            attribution: "&copy; OpenStreetMap contributors",
+            attribution: '&copy; OpenStreetMap France | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
             maxZoom: 19,
-            maxNativeZoom: 19,
             updateWhenZooming: false,
             updateWhenIdle: true,
-            updateInterval: 250,
-            keepBuffer: 1,
-            detectRetina: false,
-            subdomains: ["a", "b", "c"],
-            crossOrigin: true,
+            crossOrigin: "anonymous",
           },
         )
+        osmLayer.addTo(map)
 
         var markerLayer = L.layerGroup().addTo(map)
         var routeLayer = L.layerGroup().addTo(map)
@@ -2541,15 +2543,15 @@
 
         function markerStyle(idx) {
           if (idx === 0) {
-            return { radius: 9, color: "#ffffff", weight: 2, fillColor: "#2c3e50", fillOpacity: 1 }
+            return { radius: 10, color: "#ffffff", weight: 3, fillColor: "#1e293b", fillOpacity: 1 }
           }
           var selected = selectedOrder.indexOf(idx) !== -1
           return {
             radius: selected ? 8 : 5,
             color: "#ffffff",
-            weight: selected ? 2 : 1.5,
-            fillColor: selected ? "#2980b9" : "#b0c4de",
-            fillOpacity: 0.95,
+            weight: selected ? 2.5 : 1.5,
+            fillColor: selected ? "#3b82f6" : "#cbd5e1",
+            fillOpacity: 1,
           }
         }
 
@@ -2578,20 +2580,20 @@
           routeLayer.clearLayers()
           if (selectedOrder.length === 0) return
 
-          var idaColor = "#2563eb"
-          var vueltaColor = "#f59e0b"
+          var idaColor = "#3b82f6" // Azul vibrante
+          var vueltaColor = "#f59e0b" // Naranja suave
 
           // Si tenemos ruta real con geometrías separadas de ida y vuelta
           if (realRoute.status === "ready" && realRoute.idaGeometry && realRoute.vueltaGeometry) {
-            // IDA: línea azul continua
+            // IDA: línea azul continua con sombra
             var idaCoords = geoJsonToLatLngs(realRoute.idaGeometry)
             if (idaCoords.length > 1) {
               L.polyline(idaCoords, {
                 color: idaColor,
-                weight: 5,
-                opacity: 0.9,
+                weight: 6,
+                opacity: 0.8,
                 lineJoin: "round",
-                lineCap: "round",
+                lineCap: "round"
               }).addTo(routeLayer)
             }
             // VUELTA: línea naranja discontinua
@@ -2599,11 +2601,11 @@
             if (vueltaCoords.length > 1) {
               L.polyline(vueltaCoords, {
                 color: vueltaColor,
-                weight: 4,
-                opacity: 0.9,
-                dashArray: "8 8",
+                weight: 5,
+                opacity: 0.8,
+                dashArray: "10 12",
                 lineJoin: "round",
-                lineCap: "round",
+                lineCap: "round"
               }).addTo(routeLayer)
             }
             return
@@ -2685,14 +2687,15 @@
           if (online) {
             offlineWarning.classList.remove("visible")
             offlineWarning.style.display = "none"
-            if (!map.hasLayer(osmLayer)) map.addLayer(osmLayer)
+            // if (!map.hasLayer(osmLayer)) map.addLayer(osmLayer)
             programarRutaReal()
             setTimeout(function () {
               resizeAndDrawMap(false)
               centrarMapaEnRuta()
             }, 200)
           } else {
-            if (map.hasLayer(osmLayer)) map.removeLayer(osmLayer)
+            // No remover la capa, solo mantenerla.
+            // if (map.hasLayer(osmLayer)) map.removeLayer(osmLayer)
             offlineWarning.classList.add("visible")
             offlineWarning.style.display = "flex"
             mapLoading.style.display = "none"
