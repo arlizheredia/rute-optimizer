@@ -1,0 +1,3044 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ruta de Reparto · Microbús Santiago de Cuba</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <style>
+      /* === Reset y estilos globales === */
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+        background: #f4f7fb;
+        color: #1e293b;
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+      }
+      .app {
+        max-width: 1400px;
+        width: 100%;
+        background: #ffffff;
+        border-radius: 28px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+        padding: 28px 32px 40px;
+        transition: all 0.2s;
+      }
+
+      /* === Encabezado === */
+      .header {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #e9eef3;
+        padding-bottom: 18px;
+      }
+      .header h1 {
+        font-size: 26px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+        color: #0b2b44;
+      }
+      .header h1 small {
+        font-size: 16px;
+        font-weight: 400;
+        color: #4b6a86;
+        display: block;
+        margin-top: 2px;
+      }
+      .header .badge {
+        background: #dbeafe;
+        color: #1e4a7a;
+        padding: 6px 16px;
+        border-radius: 40px;
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      /* === Instrucciones colapsables === */
+      .instructions-toggle {
+        background: #f1f5f9;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 40px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #1e4a7a;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.2s;
+        margin-bottom: 16px;
+      }
+      .instructions-toggle:hover {
+        background: #e2e8f0;
+      }
+      .instructions-panel {
+        background: #f8fafc;
+        border-radius: 16px;
+        padding: 0 22px;
+        max-height: 0;
+        overflow: hidden;
+        transition:
+          max-height 0.4s ease,
+          padding 0.3s ease;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 18px;
+      }
+      .instructions-panel.open {
+        max-height: 800px;
+        padding: 20px 22px;
+      }
+      .instructions-panel p {
+        margin: 6px 0;
+        font-size: 14px;
+        line-height: 1.6;
+        color: #2d3c4f;
+      }
+      .instructions-panel ul {
+        margin: 6px 0 6px 22px;
+        font-size: 14px;
+        line-height: 1.7;
+        color: #2d3c4f;
+      }
+      .instructions-panel strong {
+        color: #0b2b44;
+      }
+
+      /* === Tabs === */
+      .tabs {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 2px;
+      }
+      .tab-btn {
+        background: transparent;
+        border: none;
+        padding: 10px 28px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #6b8aaa;
+        cursor: pointer;
+        border-radius: 12px 12px 0 0;
+        transition: all 0.2s;
+        position: relative;
+      }
+      .tab-btn:hover {
+        background: #f1f5f9;
+        color: #1e3a5f;
+      }
+      .tab-btn.active {
+        color: #0b2b44;
+        background: #eef3f9;
+      }
+      .tab-btn.active::after {
+        content: "";
+        position: absolute;
+        bottom: -2px;
+        left: 20%;
+        right: 20%;
+        height: 3px;
+        background: #1e6bb8;
+        border-radius: 4px;
+      }
+      .tab-content {
+        display: none;
+        animation: fadeIn 0.25s ease;
+      }
+      .tab-content.active {
+        display: block;
+      }
+
+      /* La sección de Distancias permanece visible siempre. */
+      #tab-distancias {
+        display: block !important;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0.4;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* === Parámetros === */
+      .params {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px 30px;
+        background: #f8fafc;
+        border-radius: 16px;
+        padding: 16px 22px;
+        margin-bottom: 22px;
+        border: 1px solid #e9eef3;
+        align-items: center;
+      }
+      .params .group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .params label {
+        font-weight: 500;
+        font-size: 14px;
+        color: #1e3a5f;
+      }
+      .params input[type="number"] {
+        width: 90px;
+        padding: 6px 10px;
+        border: 1.5px solid #d1d9e6;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 500;
+        background: white;
+        transition: border 0.2s;
+        text-align: center;
+      }
+      .params input[type="number"]:focus {
+        outline: none;
+        border-color: #3b7fc4;
+        box-shadow: 0 0 0 3px rgba(59, 127, 196, 0.15);
+      }
+      .params .unit {
+        font-size: 13px;
+        color: #4b6a86;
+        font-weight: 400;
+      }
+
+      /* === Layout ruta === */
+      .ruta-grid {
+        display: grid;
+        grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+        gap: 22px;
+        margin-top: 6px;
+        align-items: start;
+      }
+      .ruta-main {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      @media (max-width: 900px) {
+        .ruta-grid {
+          grid-template-columns: minmax(210px, 0.42fr) minmax(0, 1fr);
+          gap: 16px;
+        }
+        .checkbox-grid {
+          max-height: 520px;
+        }
+      }
+      @media (max-width: 700px) {
+        .ruta-grid {
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
+        .selection-panel {
+          position: relative;
+        }
+        .checkbox-grid {
+          max-height: 300px;
+        }
+        .ruta-main {
+          gap: 12px;
+        }
+      }
+
+      /* === Selección de destinos === */
+      .selection-panel {
+        background: #fafcff;
+        border-radius: 18px;
+        border: 1px solid #e2e8f0;
+        padding: 14px 14px 16px;
+        align-self: start;
+      }
+      .selection-panel h3 {
+        font-size: 15px;
+        font-weight: 600;
+        color: #0b2b44;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .selection-panel h3 span {
+        background: #dbeafe;
+        padding: 0 10px;
+        border-radius: 40px;
+        font-size: 12px;
+        font-weight: 500;
+        color: #1e4a7a;
+      }
+      .destination-search {
+        margin-bottom: 8px;
+      }
+      .destination-search label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        color: #4b6a86;
+        margin-bottom: 4px;
+      }
+      .destination-search input {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 7px 9px;
+        font-size: 12px;
+        color: #173b5d;
+        background: #fff;
+      }
+      .destination-search input:focus {
+        outline: none;
+        border-color: #3b7fc4;
+        box-shadow: 0 0 0 2px rgba(59,127,196,.12);
+      }
+      .destination-search input::placeholder {
+        color: #94a3b8;
+      }
+      .destination-empty {
+        padding: 10px 6px;
+        color: #64748b;
+        font-size: 11px;
+        text-align: center;
+      }
+      .checkbox-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2px 6px;
+        max-height: 380px;
+        overflow-y: auto;
+        padding-right: 2px;
+      }
+      .checkbox-grid label {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        padding: 2px 4px 2px 2px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background 0.1s;
+        color: #1e3a5f;
+      }
+      .checkbox-grid label:hover {
+        background: #eef4fb;
+      }
+      .checkbox-grid input[type="checkbox"] {
+        width: 14px;
+        height: 14px;
+        accent-color: #1e6bb8;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .selection-panel .order-preview {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #4b6a86;
+        border-top: 1px solid #e2e8f0;
+        padding-top: 8px;
+      }
+
+      /* === Resultados === */
+      .results {
+        margin-top: 0;
+        background: #f0f6fe;
+        border-radius: 18px;
+        padding: 20px 28px 24px;
+        border: 1px solid #d4e2f5;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr auto;
+        gap: 16px 32px;
+        align-items: start;
+        transition: all 0.2s;
+      }
+      @media (max-width: 700px) {
+        .results {
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+      }
+      .results .stat {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .results .stat .label {
+        font-size: 13px;
+        font-weight: 500;
+        color: #3b5a78;
+        letter-spacing: 0.2px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 2px;
+      }
+      .results .stat .value {
+        font-size: 28px;
+        font-weight: 700;
+        color: #0b2b44;
+        line-height: 1.2;
+      }
+      .results .stat .value small {
+        font-size: 17px;
+        font-weight: 400;
+        color: #4b6a86;
+        margin-left: 4px;
+      }
+      .results .tramos-info {
+        font-size: 13px;
+        color: #3b5a78;
+        align-self: center;
+        justify-self: end;
+        white-space: nowrap;
+        background: #e2eaf3;
+        padding: 4px 16px;
+        border-radius: 30px;
+        font-weight: 500;
+      }
+      .results .route-summary {
+        grid-column: 1 / -1;
+        font-size: 14px;
+        color: #1e3a5f;
+        background: white;
+        padding: 8px 16px;
+        border-radius: 40px;
+        border: 1px solid #cfe0f2;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 8px;
+      }
+      .results .route-summary .step {
+        background: #eef4fb;
+        padding: 2px 10px;
+        border-radius: 30px;
+        font-weight: 500;
+        font-size: 13px;
+      }
+      .results .route-summary .arrow {
+        color: #6b8aaa;
+        font-weight: 300;
+      }
+      .results .route-summary .empty-msg {
+        color: #6b8aaa;
+        font-style: italic;
+        font-weight: 400;
+      }
+
+      /* === Mapa expandible === */
+      #mapContainer {
+        position: relative;
+        margin-top: 0;
+        width: 100%;
+        height: 430px;
+        border-radius: 18px;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+        background: #f0f2f5;
+        transition: height 0.3s ease, border-radius 0.3s ease;
+      }
+      #mapContainer.expanded {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        width: 100vw;
+        height: 100vh;
+        margin: 0;
+        border-radius: 0;
+        border: 0;
+      }
+      #mapContainer.expanded #mapCanvas,
+      #mapContainer.expanded #mapCanvas .leaflet-container {
+        height: 100%;
+      }
+      body.map-expanded {
+        overflow: hidden;
+      }
+      @media (max-width: 700px) {
+        #mapContainer {
+          height: 360px;
+        }
+      }
+      #mapCanvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        min-height: 100%;
+        background: #e5e9f0;
+      }
+      #mapCanvas .leaflet-container {
+        width: 100%;
+        height: 100%;
+        font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+        background: #e5e9f0;
+      }
+      .map-loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 14px;
+        color: #4b6a86;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 8px 20px;
+        border-radius: 30px;
+        font-weight: 500;
+        pointer-events: none;
+        display: none;
+      }
+      .map-expand-btn {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        z-index: 10;
+        background: white;
+        border: none;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+        font-size: 18px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s;
+        color: #2c3e50;
+      }
+      .map-expand-btn:hover {
+        background: #f0f2f5;
+      }
+      .map-expand-btn:active {
+        transform: scale(0.92);
+      }
+      .map-legend-toggle {
+        border: 0;
+        background: #fff;
+        color: #1e3a5f;
+        padding: 8px 12px;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,.22);
+        font-weight: 600;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .map-legend-toggle:hover { background: #f1f5f9; }
+
+      /* Advertencia de conexión */
+      #offlineWarning {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(4px);
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 20px;
+        border-radius: 18px;
+        color: #1e293b;
+      }
+      #offlineWarning.visible {
+        display: flex;
+      }
+      #offlineWarning .icon {
+        font-size: 48px;
+        margin-bottom: 12px;
+      }
+      #offlineWarning h3 {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: #0b2b44;
+      }
+      #offlineWarning p {
+        font-size: 15px;
+        color: #4b6a86;
+        max-width: 320px;
+      }
+      #offlineWarning .retry-btn {
+        margin-top: 18px;
+        background: #1e6bb8;
+        color: white;
+        border: none;
+        padding: 8px 28px;
+        border-radius: 40px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      #offlineWarning .retry-btn:hover {
+        background: #155493;
+      }
+
+
+      /* === Formulario agregar destino === */
+      .add-destino {
+        background: #f8fafc;
+        border-radius: 16px;
+        padding: 14px 20px;
+        margin-bottom: 18px;
+        border: 1px solid #e2e8f0;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px 16px;
+      }
+      .add-destino label {
+        font-weight: 500;
+        font-size: 13px;
+        color: #1e3a5f;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .add-destino input {
+        padding: 5px 10px;
+        border: 1.5px solid #d1d9e6;
+        border-radius: 8px;
+        font-size: 14px;
+        width: 120px;
+        background: white;
+      }
+      .add-destino input:focus {
+        outline: none;
+        border-color: #3b7fc4;
+        box-shadow: 0 0 0 3px rgba(59, 127, 196, 0.12);
+      }
+      .add-destino .btn-add {
+        background: #1e6bb8;
+        color: white;
+        border: none;
+        padding: 6px 20px;
+        border-radius: 30px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background 0.2s;
+        margin-left: auto;
+      }
+      .add-destino .btn-add:hover {
+        background: #155493;
+      }
+      .geocode-status {
+        flex: 1 1 260px;
+        min-width: 180px;
+        font-size: 12px;
+        color: #4b6a86;
+      }
+      .geocode-status.ok { color: #166534; }
+      .geocode-status.error { color: #b42318; }
+      .geocode-status.loading { color: #1e4a7a; }
+      .matrix-loading {
+        position: absolute;
+        top: 8px;
+        right: 10px;
+        z-index: 20;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255,255,255,.94);
+        border: 1px solid #cbd5e1;
+        border-radius: 999px;
+        padding: 6px 12px;
+        box-shadow: 0 2px 8px rgba(15,23,42,.08);
+        color: #1e4a7a;
+        font-size: 12px;
+        font-weight: 600;
+        pointer-events: none;
+      }
+
+      .config-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 16px; }
+      .config-toolbar button { border:1px solid #cbd5e1; background:#fff; color:#1e3a5f; padding:7px 12px; border-radius:8px; cursor:pointer; font-weight:600; font-size:12px; }
+      .config-toolbar button:hover:not(:disabled) { background:#eef4fb; }
+      .config-toolbar button:disabled, .requires-online:disabled { opacity:.5; cursor:not-allowed; }
+      .connection-banner { display:none; margin:0 0 14px; padding:10px 14px; border:1px solid #f0b8b8; background:#fff5f5; color:#8a1c1c; border-radius:10px; font-size:12px; line-height:1.45; }
+      .connection-banner.visible { display:block; }
+      .add-destino select { padding:5px 10px; border:1.5px solid #d1d9e6; border-radius:8px; font-size:14px; background:#fff; color:#173b5d; }
+      .geocode-candidates { flex:1 1 100%; display:flex; flex-direction:column; gap:6px; margin-top:4px; width:100%; }
+      .geocode-candidate { width:100%; border:1px solid #cbd5e1; background:#fff; border-radius:8px; padding:8px 10px; color:#1e4a7a; font-size:12px; cursor:pointer; text-align:left; line-height:1.35; }
+      .geocode-candidate:hover { background:#eef4fb; }
+      .geocode-candidate.selected { background:#e8f2ff; border-color:#3b7fc4; }
+      .geocode-candidate .candidate-title { display:block; font-weight:700; color:#173b5d; margin-bottom:2px; }
+      .geocode-candidate .candidate-detail { display:block; color:#64748b; font-size:11px; }
+      .coord-modal { position:fixed; inset:0; z-index:20000; display:none; align-items:center; justify-content:center; padding:18px; }
+      .coord-modal.open { display:flex; }
+      .coord-modal-backdrop { position:absolute; inset:0; background:rgba(15,23,42,.55); }
+      .coord-modal-dialog { position:relative; width:min(900px, 100%); background:#fff; border-radius:16px; box-shadow:0 20px 60px rgba(15,23,42,.25); overflow:hidden; }
+      .coord-modal-header { display:flex; justify-content:space-between; align-items:flex-start; padding:15px 18px 10px; border-bottom:1px solid #e2e8f0; }
+      .coord-modal-header h3 { margin:0; color:#0b2b44; font-size:17px; }
+      .coord-modal-header p { margin:3px 0 0; color:#64748b; font-size:12px; }
+      .coord-close { border:0; background:transparent; font-size:28px; line-height:1; color:#64748b; cursor:pointer; }
+      .coord-fields { display:flex; flex-wrap:wrap; gap:10px; align-items:end; padding:12px 18px; }
+      .coord-fields label { display:flex; flex-direction:column; gap:4px; color:#1e3a5f; font-size:11px; font-weight:700; }
+      .coord-fields input { width:150px; padding:7px 8px; border:1px solid #cbd5e1; border-radius:7px; }
+      #coordHint { color:#64748b; font-size:11px; margin-left:auto; }
+      #coordMap { height:420px; background:#e5e9f0; }
+      .coord-modal-footer { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:11px 18px; border-top:1px solid #e2e8f0; }
+      .coord-modal-footer button { border:1px solid #cbd5e1; background:#fff; color:#1e3a5f; padding:7px 12px; border-radius:8px; cursor:pointer; }
+      .coord-modal-footer .btn-add { background:#1e6bb8; color:#fff; border:0; }
+      #coordStatus { font-size:11px; color:#4b6a86; }
+      .coord-edit-btn { border:1px solid #bfd0e2; background:#fff; color:#1e6bb8; border-radius:6px; padding:3px 6px; margin-left:5px; cursor:pointer; font-size:12px; }
+      .coord-edit-btn:hover:not(:disabled) { background:#eef4fb; }
+      .coord-edit-btn:disabled { opacity:.45; cursor:not-allowed; }
+      .matrix-name-wrap { display:flex; align-items:center; justify-content:flex-end; gap:4px; }
+      .destination-locked input[type="checkbox"] { cursor:not-allowed; }
+      @media (max-width:700px) { .coord-modal { padding:8px; } #coordMap { height:360px; } .coord-fields input { width:125px; } #coordHint { width:100%; margin-left:0; } .coord-modal-footer { align-items:flex-start; flex-direction:column; } }
+
+      /* === Ajustes responsive para móviles === */
+      @media (max-width: 700px) {
+        body {
+          padding: 8px;
+        }
+
+        .app {
+          padding: 18px 12px 26px;
+          border-radius: 18px;
+        }
+
+        .header {
+          gap: 10px;
+          margin-bottom: 14px;
+          padding-bottom: 14px;
+        }
+
+        .header h1 {
+          font-size: 21px;
+        }
+
+        .header h1 small {
+          font-size: 13px;
+        }
+
+        .header .badge {
+          width: 100%;
+          text-align: center;
+          font-size: 12px;
+          padding: 6px 10px;
+        }
+
+        .instructions-toggle {
+          width: 100%;
+          justify-content: center;
+          margin-bottom: 12px;
+        }
+
+        .instructions-panel {
+          padding-left: 14px;
+          padding-right: 14px;
+        }
+
+        .instructions-panel.open {
+          padding: 14px;
+        }
+
+        .tabs {
+          gap: 2px;
+          margin-bottom: 14px;
+        }
+
+        .tab-btn {
+          flex: 1;
+          padding: 9px 8px;
+          font-size: 14px;
+        }
+
+        .params {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 10px;
+          padding: 12px;
+          margin-bottom: 14px;
+        }
+
+        .params .group {
+          width: 100%;
+          justify-content: space-between;
+        }
+
+        .params input[type="number"] {
+          width: 82px;
+        }
+
+        .selection-panel {
+          padding: 12px;
+        }
+
+        .checkbox-grid {
+          max-height: 260px;
+        }
+
+        #mapContainer {
+          height: 320px;
+          border-radius: 14px;
+        }
+
+        .results {
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          padding: 14px;
+          border-radius: 14px;
+        }
+
+        .results .stat .value {
+          font-size: 22px;
+        }
+
+        .results .stat .label {
+          font-size: 12px;
+        }
+
+        .results .tramos-info {
+          grid-column: 1 / -1;
+          justify-self: stretch;
+          text-align: center;
+        }
+
+        .results .route-summary {
+          padding: 8px 10px;
+          border-radius: 14px;
+          font-size: 12px;
+        }
+
+        .distance-section-header {
+          margin-top: 2px;
+          margin-bottom: 10px;
+          padding: 8px 0;
+          font-size: 15px;
+        }
+
+        .add-destino {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 9px;
+          padding: 12px;
+          margin-bottom: 12px;
+        }
+
+        .add-destino label {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 6px;
+          font-size: 12px;
+        }
+
+        .add-destino input {
+          width: 100% !important;
+          min-width: 0;
+          padding: 8px 10px;
+        }
+
+        .add-destino .btn-add {
+          width: 100%;
+          margin-left: 0;
+          padding: 9px 14px;
+        }
+
+        .geocode-status {
+          min-width: 0;
+          width: 100%;
+        }
+
+        .matrix-wrapper {
+          border-radius: 14px;
+        }
+
+        .matrix-scroll {
+          max-height: 58vh;
+          min-height: 160px;
+          padding: 4px;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .matrix-scroll table {
+          width: max-content;
+          min-width: 680px;
+          font-size: 12px;
+        }
+
+        .matrix-scroll th {
+          font-size: 11px;
+          padding: 6px 3px;
+        }
+
+        .matrix-scroll td:first-child {
+          min-width: 58px;
+          padding: 2px 5px;
+        }
+
+        .matrix-scroll td {
+          min-width: 46px;
+        }
+
+        .matrix-scroll td input {
+          min-width: 40px;
+          padding: 6px 2px;
+          font-size: 12px;
+        }
+
+        .matrix-footer {
+          gap: 5px;
+          padding: 7px 10px;
+          font-size: 11px;
+        }
+
+        .footer {
+          margin-top: 16px;
+          padding-top: 14px;
+          font-size: 11px;
+        }
+      }
+
+      @media (max-width: 380px) {
+        .app {
+          padding-left: 9px;
+          padding-right: 9px;
+        }
+
+        .tab-btn {
+          font-size: 13px;
+        }
+
+        .results {
+          grid-template-columns: 1fr;
+        }
+
+        .results .tramos-info {
+          grid-column: auto;
+        }
+
+        #mapContainer {
+          height: 280px;
+        }
+      }
+
+
+/* === Gestión de destinos integrada en la lista superior === */
+.destino-management {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #dbe5ef;
+  border-radius: 10px;
+  background: #f8fbfe;
+}
+.destino-management-title { color:#1e3a5f; font-size:12px; font-weight:700; margin-bottom:7px; }
+.destino-search-new { display:flex; gap:6px; width:100%; }
+.destino-search-new input { flex:1; min-width:0; padding:7px 9px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; }
+.destino-search-new .btn-add, .destino-add-row .btn-add { border:0; background:#1e6bb8; color:#fff; border-radius:8px; padding:7px 10px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.destino-scope { margin-top:6px; color:#64748b; font-size:10.5px; line-height:1.35; }
+.destino-add-row { display:flex; align-items:center; gap:8px; margin-top:7px; }
+.destino-add-row .geocode-status { flex:1; min-width:0; }
+.destination-edit-btn { margin-left:auto !important; flex:0 0 auto; }
+.checkbox-grid label { display:flex; align-items:center; gap:7px; width:100%; }
+.checkbox-grid label > span { flex:1; min-width:0; }
+
+      /* === Footer === */
+      .footer {
+        margin-top: 24px;
+        font-size: 13px;
+        color: #6b8aaa;
+        text-align: center;
+        border-top: 1px solid #e9eef3;
+        padding-top: 18px;
+      }
+
+      /* scrollbar personalizada */
+      .matrix-scroll::-webkit-scrollbar,
+      .checkbox-grid::-webkit-scrollbar {
+        width: 5px;
+        height: 5px;
+      }
+      .matrix-scroll::-webkit-scrollbar-track,
+      .checkbox-grid::-webkit-scrollbar-track {
+        background: #eef3f9;
+        border-radius: 10px;
+      }
+      .matrix-scroll::-webkit-scrollbar-thumb,
+      .checkbox-grid::-webkit-scrollbar-thumb {
+        background: #c8d6e5;
+        border-radius: 10px;
+      }
+      .matrix-scroll::-webkit-scrollbar-thumb:hover,
+      .checkbox-grid::-webkit-scrollbar-thumb:hover {
+        background: #a8bccf;
+      }
+    
+
+
+
+/* === Corrección: parámetros perfectamente alineados en móvil === */
+@media (max-width: 768px) {
+  .params-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+    justify-items: start !important;
+    align-items: start !important;
+  }
+
+  .params-grid > * {
+    width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    justify-self: start !important;
+    text-align: left !important;
+  }
+
+  .params-grid .param-group {
+    width: 100% !important;
+    margin: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    justify-self: start !important;
+    align-items: flex-start !important;
+    text-align: left !important;
+  }
+
+  .params-grid .param-group label {
+    display: block !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    text-align: left !important;
+  }
+
+  .params-grid .param-group input,
+  .params-grid .param-group select {
+    display: block !important;
+    box-sizing: border-box !important;
+    margin-left: 0 !important;
+    margin-right: auto !important;
+    text-align: left !important;
+  }
+}
+
+
+/* === Mejora del área de resultados — Desktop === */
+@media (min-width: 769px) {
+  .results,
+  .results-grid,
+  .result-grid {
+    align-items: stretch;
+  }
+
+  /* Cada tarjeta/indicador mantiene una composición uniforme. */
+  .result-card,
+  .result-item,
+  .result-box,
+  .stat-card {
+    min-width: 0;
+  }
+
+  /* Labels de resultados siempre en una sola línea. */
+  .result-card .label,
+  .result-item .label,
+  .result-box .label,
+  .stat-card .label,
+  .results .label {
+    white-space: nowrap !important;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  /* Si el área usa encabezados separados, también quedan en una línea. */
+  .result-card > label,
+  .result-item > label,
+  .result-box > label,
+  .stat-card > label {
+    white-space: nowrap !important;
+  }
+}
+
+
+/* === Encabezados de sección Ruta y Distancias === */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  margin: 4px 0 14px;
+  border-bottom: 2px solid #e2e8f0;
+  color: #0b2b44;
+  font-size: 17px;
+  font-weight: 700;
+}
+.section-header::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #dbe4ee;
+}
+
+
+/* === Botón de pantalla completa del mapa === */
+.map-container { position: relative; }
+.fullscreen-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: rgba(255,255,255,.95);
+  color: #0b2b44;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+.fullscreen-btn:hover { background: #fff; }
+
+.map-container.map-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 9999 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+}
+.map-container.map-fullscreen #map {
+  width: 100% !important;
+  height: 100% !important;
+}
+@media (max-width: 768px) {
+  .fullscreen-btn {
+    width: 36px;
+    height: 36px;
+    top: 8px;
+    right: 8px;
+  }
+}
+
+
+/* === Botón de expansión del mapa ===
+   Se coloca debajo del control de leyenda de Leaflet,
+   alineado al mismo extremo derecho. */
+#mapContainer {
+  position: relative !important;
+}
+
+#mapExpandBtn {
+  position: absolute !important;
+  top: 52px !important;
+  right: 10px !important;
+  left: auto !important;
+  bottom: auto !important;
+  z-index: 10000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+@media (max-width: 700px) {
+  #mapExpandBtn {
+    top: 50px !important;
+    right: 10px !important;
+  }
+}
+
+
+/* Agrupación visual de destinos por provincia */
+.province-group-header {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 10px 0 4px;
+  padding: 7px 4px 5px;
+  border-bottom: 1px solid #dbe4ee;
+  color: #0b2b44;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.province-group-header:first-child {
+  margin-top: 2px;
+}
+
+
+.matrix-province-corner, .matrix-base-header, .matrix-province-header {
+  text-align: center !important;
+  vertical-align: middle !important;
+  font-weight: 800 !important;
+  white-space: nowrap !important;
+}
+.matrix-province-corner { min-width: 150px; }
+.matrix-base-header { border-right: 2px solid #cbd5e1 !important; }
+
+/* Agrupación provincial exclusivamente vertical en la lista de la matriz. */
+.matrix-province-vertical-header {
+  text-align: left !important; font-weight: 800 !important; font-size: 12px !important;
+  color: #0b2b44 !important; background: #e8eef6 !important;
+  border-top: 2px solid #b8c7d9 !important; border-bottom: 1px solid #cbd5e1 !important;
+  padding: 7px 10px !important;
+}
+.matrix-province-row td { height: auto !important; }
+
+
+/* === Importar / exportar dentro de Parámetros === */
+#configToolbar {
+  margin: 10px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid #e2e8f0;
+}
+#configToolbar button {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #1e3a5f;
+  padding: 7px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+}
+#configToolbar button:hover:not(:disabled) { background: #eef4fb; }
+#configToolbar button:disabled { opacity: .5; cursor: not-allowed; }
+#configToolbar #configStatus { font-size: 11px; }
+
+</style>
+  </head>
+  <body>
+    <div class="app" id="app">
+      <div class="header">
+        <div>
+          <h1>
+            🚐 Solución para estimar consumo de combustible en entregas
+            <small>Microbús · Santiago de Cuba</small>
+          </h1>
+        </div>
+        <div class="badge">Base: Almacenes K24</div>
+      </div>
+
+      <button class="instructions-toggle" id="toggleInstructions">
+        📖 Ver instrucciones
+      </button>
+      <div class="instructions-panel" id="instructionsPanel">
+        <p><strong>📌 Cómo usar esta aplicación:</strong></p>
+        <ul>
+          <li>
+            <strong>Pestaña Ruta:</strong> Ajusta los parámetros (rendimiento,
+            factor ciudad, precio del diésel), selecciona los destinos con los
+            checkboxes. Los destinos están agrupados por provincia según una relación geográfica <strong>fija</strong>. El orden de la ruta se calcula <strong>automáticamente</strong>
+            para que sea el más óptimo (algoritmo del vecino más cercano). El mapa se centra en la ruta con un zoom amplio.
+          </li>
+          <li>
+            <strong>Orden de la ruta:</strong> Base → (destinos en orden óptimo) → Base.
+          </li>
+          <li>
+            <strong>Resultados:</strong> Se actualizan
+            <strong>automáticamente</strong> al modificar cualquier valor
+            (parámetros, selección o matriz).
+          </li>
+          <li>
+            <strong>Mapa:</strong> Cada destino se muestra con un marcador
+            circular. Los seleccionados aparecen en azul con su número de orden;
+            la Base, en negro con una estrella. El tramo de <strong>ida</strong> se muestra en azul continuo, y el tramo de <strong>vuelta</strong> en naranja discontinuo.
+          </li>
+          <li>
+            <strong>Conexión:</strong> Si no hay conexión a internet, se muestra
+            un mensaje de advertencia y el mapa se desactiva. El cálculo de
+            distancia se realiza localmente (Haversine). Con conexión, se usa
+            la ruta vial real de OpenStreetMap (OSRM) y se dibuja la geometría
+            sobre el mapa.
+          </li>
+        </ul>
+      </div>
+
+      <div class="tabs" id="tabContainer">
+        <button class="tab-btn active" data-tab="ruta">📋 Ruta</button>
+      </div>
+
+      <div id="connectionBanner" class="connection-banner" role="status" aria-live="polite">📡 <strong>Sin conexión a internet.</strong> Las operaciones sobre la lista de destinos están temporalmente bloqueadas. Conéctate a internet para agregar, importar, editar coordenadas o actualizar distancias viales.</div>
+
+      <div class="tab-content active" id="tab-ruta">
+        <div class="params">
+          <div class="group">
+            <label>⛽ Rendimiento</label>
+            <input
+              type="number"
+              id="rendimiento"
+              value="8"
+              step="0.1"
+              min="1"
+              max="30"
+            />
+            <span class="unit">km/L</span>
+          </div>
+          <div class="group">
+            <label>🏙️ Factor ciudad</label>
+            <input
+              type="number"
+              id="factorCiudad"
+              value="1.15"
+              step="0.01"
+              min="0.5"
+              max="3"
+            />
+            <span class="unit">×</span>
+          </div>
+          <div class="group">
+            <label>💲 Precio diésel</label>
+            <input type="number" id="precio" value="2000" step="1" min="0" />
+            <span class="unit">CUP/L</span>
+          </div>
+        </div>
+
+        <div class="config-toolbar" id="configToolbar">
+          <button type="button" id="btnExportarConfig">⬇️ Exportar configuración</button>
+          <button type="button" id="btnImportarConfig" class="requires-online">⬆️ Importar configuración</button>
+          <input type="file" id="inputImportarConfig" accept="application/json,.json" hidden />
+          <span id="configStatus" aria-live="polite"></span>
+        </div>
+
+        <div class="ruta-grid">
+          <div class="selection-panel">
+            <h3>
+              🎯 Destinos
+              <span id="countSelected">0</span>
+            </h3>
+            <div class="destination-search">
+              <label for="destinoSearch">🔎 Buscar destino</label>
+              <input type="search" id="destinoSearch" placeholder="Escribe para filtrar destinos…" autocomplete="off" />
+            </div>
+            <div class="destino-management">
+              <div class="destino-management-title">📍 Agregar nuevo destino</div>
+              <div class="destino-search-new">
+                <input type="text" id="nuevoNombre" placeholder="Buscar ubicación…" autocomplete="off" />
+                <button class="btn-add requires-online" id="btnBuscarDestino" type="button">🔎 Buscar</button>
+              </div>
+              <div class="destino-scope">Solo en <strong>Santiago de Cuba</strong> y <strong>Guantánamo</strong>. La provincia se obtiene automáticamente.</div>
+              <div id="geocodeCandidates" class="geocode-candidates"></div>
+              <div class="destino-add-row">
+                <span id="geocodeStatus" class="geocode-status" aria-live="polite"></span>
+                <button class="btn-add requires-online" id="btnAgregarDestino" type="button" style="display:none">➕ Agregar destino</button>
+              </div>
+              <input type="hidden" id="nuevoLat" />
+              <input type="hidden" id="nuevoLon" />
+            </div>
+            <div class="checkbox-grid" id="checkboxGrid"></div>
+            <div class="order-preview" id="orderPreview">
+              Orden: <em>ninguno</em>
+            </div>
+          </div>
+
+          <div class="ruta-main">
+            <div id="mapContainer">
+              <div id="mapCanvas" aria-label="Mapa de destinos"></div>
+              <button
+                class="map-expand-btn"
+                id="mapExpandBtn"
+                title="Expandir mapa a pantalla completa"
+                aria-label="Expandir mapa a pantalla completa"
+              >
+                ⤢
+              </button>
+              <div class="map-loading" id="mapLoading">Cargando mapa...</div>
+              <div id="offlineWarning" class="visible">
+                <div class="icon">📡</div>
+                <h3>Sin conexión a internet</h3>
+                <p>El mapa y las operaciones sobre la lista de destinos están bloqueados hasta recuperar la conexión.</p>
+                <button class="retry-btn" id="retryConnectionBtn">Reintentar</button>
+              </div>
+            </div>
+
+            <div>
+              <div class="results" id="results">
+              <div class="stat">
+                <span class="label">📏 Distancia total</span>
+                <span class="value" id="distTotal">0.0 <small>km</small></span>
+              </div>
+              <div class="stat">
+                <span class="label">⛽ Consumo</span>
+                <span class="value" id="consumo">0.0 <small>L</small></span>
+              </div>
+              <div class="stat">
+                <span class="label">💰 Costo estimado</span>
+                <span class="value" id="costo">0.0 <small>CUP</small></span>
+              </div>
+              <div class="tramos-info" id="tramosCount">0 tramos</div>
+              <div class="route-summary" id="routeSummary">
+                <span class="empty-msg">Selecciona destinos para ver la ruta</span>
+              </div>
+              <div id="routeStatus" style="margin-top:8px;font-size:12px;color:#4b6a86;min-height:18px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+
+<div class="coord-modal" id="coordModal" aria-hidden="true">
+          <div class="coord-modal-backdrop" id="coordModalBackdrop"></div>
+          <div class="coord-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="coordModalTitle">
+            <div class="coord-modal-header">
+              <div>
+                <h3 id="coordModalTitle">📍 Editar coordenadas</h3>
+                <p id="coordModalDestino"></p>
+              </div>
+              <button type="button" id="coordModalClose" class="coord-close" aria-label="Cerrar">×</button>
+            </div>
+            <div class="coord-fields">
+              <label>Latitud<input type="number" id="editLat" step="0.000001"></label>
+              <label>Longitud<input type="number" id="editLon" step="0.000001"></label>
+              <span id="coordHint">Haz clic en el mapa para colocar el punto.</span>
+            </div>
+            <div id="coordMap"></div>
+            <div class="coord-modal-footer">
+              <span id="coordStatus"></span>
+              <div><button type="button" id="coordCancel">Cancelar</button><button type="button" id="coordSave" class="btn-add requires-online">Guardar coordenadas</button></div>
+            </div>
+          </div>
+
+      <div class="footer">
+        Santiago de Cuba · Guantánamo · OpenStreetMap/OSRM · rutas viales y consumo
+      </div>
+    </div>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script>
+      ;(function () {
+        "use strict"
+
+        // ===================================================================
+        // 1. DATOS
+        // ===================================================================
+        var DESTINOS = [
+          "Base (Empresa de Servicios a la Construcción)",
+          "Nuevo Vista Alegre",
+          "Agüero",
+          "Vista Alegre",
+          "Santa Bárbara",
+          "Santiago Centro",
+          "Sueño",
+          "Veguita de Galo",
+          "Terrazas",
+          "Micro 1A (Abel Santamaría)",
+          "Micro 1B (Abel Santamaría)",
+          "Micro 2 (Abel Santamaría)",
+          "Micro 3",
+          "Chicharrones",
+          "La Asunción",
+          "Altamira",
+          "Vista Hermosa",
+          "30 de Noviembre",
+          "Mariana de la Torre",
+          "Versalles",
+          "Pastorita",
+          "El Caney",
+          "Rajayoga",
+          "El Cristo",
+          "Distrito José Martí",
+          "Micro 7",
+          "Micro 8",
+          "Micro 9",
+          "Reparto Antonio Maceo",
+          "Van Van",
+          "Los Hoyos",
+          "Marimón",
+          "Dessy",
+          "Flores",
+          "El polvorín",
+          "Portuondo",
+          "Sevilla",
+          "Las Guásimas",
+          "Siboney",
+          "El Oasis",
+          "Palma Soriano (Municipio)",
+          "Contramaestre (Municipio)",
+          "San Luis (Municipio)",
+          "La Maya - Songo-La Maya (Municipio)",
+          "Mayarí Arriba - Segundo Frente (Municipio)",
+          "Cruce de los Baños - Tercer Frente (Municipio)",
+          "Chivirico - Guamá (Municipio)",
+          "Mella (Municipio)",
+          "Guantánamo (Centro municipal)",
+          "Baracoa (Municipio)",
+          "Caimanera (Municipio)",
+          "El Salvador (Municipio)",
+          "Imías (Municipio)",
+          "Maisí (Municipio)",
+          "Manuel Tames (Municipio)",
+          "Niceto Pérez (Municipio)",
+          "San Antonio del Sur (Municipio)",
+          "Yateras (Municipio)",
+        ]
+
+        var COORDS = [
+          [20.03438, -75.85641],
+          [20.03886, -75.84767],
+          [20.03816, -75.84421],
+          [20.02818, -75.80138],
+          [20.02148, -75.81114],
+          [20.0214, -75.8295],
+          [20.02969, -75.8166],
+          [20.0119, -75.82959],
+          [20.02324, -75.80654],
+          [20.01192, -75.77647],
+          [20.01218, -75.77294],
+          [20.0113, -75.76848],
+          [20.00209, -75.77005],
+          [20.00892, -75.82231],
+          [20.01667, -75.81667],
+          [20.005, -75.846],
+          [20.00991, -75.83525],
+          [20.01687, -75.80789],
+          [20.01259, -75.83304],
+          [19.99609, -75.83848],
+          [20.03093, -75.79796],
+          [20.05623, -75.77169],
+          [20.02532, -75.79494],
+          [20.11419, -75.75012],
+          [20.04613, -75.83199],
+          [20.04963, -75.84139],
+          [20.04691, -75.84636],
+          [20.0484, -75.83141],
+          [20.00312, -75.83004],
+          [20.00326, -75.84515],
+          [20.02919, -75.82738],
+          [20.04608, -75.84999],
+          [20.01277, -75.82298],
+          [20.01879, -75.81944],
+          [20.00307, -75.81604],
+          [20.01886, -75.81549],
+          [20.00654, -75.73552],
+          [19.9915, -75.71709],
+          [19.96072, -75.70552],
+          [19.95674, -75.68298],
+          [20.21417, -75.99167],
+          [20.29157, -76.23881],
+          [20.18806, -75.84861],
+          [20.17333, -75.64611],
+          [20.41194, -75.52861],
+          [20.17194, -76.32722],
+          [19.97611, -76.40972],
+          [20.36944, -75.91083],
+          [20.14444, -75.20917],
+          [20.34706, -74.49514],
+          [20.22694, -75.15444],
+          [20.21111, -75.23528],
+          [20.07389, -74.64139],
+          [20.24667, -74.15333],
+          [20.27167, -75.12667],
+          [20.62667, -75.48722],
+          [20.05528, -74.80750],
+          [20.32750, -75.01333],
+        ]
+
+        var N = DESTINOS.length
+
+        // ===================================================================
+        // 2. HAVERSINE
+        // ===================================================================
+        function haversine(lat1, lon1, lat2, lon2) {
+          var R = 6371
+          var dLat = ((lat2 - lat1) * Math.PI) / 180
+          var dLon = ((lon2 - lon1) * Math.PI) / 180
+          var a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos((lat1 * Math.PI) / 180) *
+              Math.cos((lat2 * Math.PI) / 180) *
+              Math.sin(dLon / 2) *
+              Math.sin(dLon / 2)
+          var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+          return R * c
+        }
+
+        // ===================================================================
+        // 3. MATRIZ DE DISTANCIAS
+        // ===================================================================
+        var matrixManual = {}
+        var matrixRequestId = 0
+        var matrixRequestTimer = null
+        var geocodeCache = {}
+
+        function matrixKey(i, j) { return i + ":" + j }
+
+        function computeDistanceMatrix() {
+          var mat = []
+          for (var i = 0; i < N; i++) {
+            mat[i] = []
+            for (var j = 0; j < N; j++) {
+              if (i === j) mat[i][j] = 0
+              else {
+                var manual = matrixManual[matrixKey(i, j)]
+                if (manual != null) mat[i][j] = manual
+                else {
+                  var d = haversine(COORDS[i][0], COORDS[i][1], COORDS[j][0], COORDS[j][1])
+                  mat[i][j] = Math.round(d * 10) / 10
+                }
+              }
+            }
+          }
+          return mat
+        }
+
+        function buildOsrmTableUrl() {
+          var coords = COORDS.map(function (c) { return c[1] + "," + c[0] }).join(";")
+          return "https://router.project-osrm.org/table/v1/driving/" + coords + "?annotations=distance"
+        }
+
+        async function actualizarMatrizPorCarretera() {
+          if (!navigator.onLine || N < 2) return
+          var requestId = ++matrixRequestId
+          if (matrixLoading) matrixLoading.style.display = "flex"
+          try {
+            var controller = new AbortController()
+            var timeoutId = setTimeout(function () { controller.abort() }, 15000)
+            var response
+            try {
+              response = await fetch(buildOsrmTableUrl(), {
+                headers: { Accept: "application/json" },
+                cache: "no-store",
+                signal: controller.signal
+              })
+            } finally {
+              clearTimeout(timeoutId)
+            }
+            if (!response.ok) throw new Error("HTTP " + response.status)
+            var data = await response.json()
+            if (requestId !== matrixRequestId) return
+            if (!data || data.code !== "Ok" || !data.distances) throw new Error(data && data.code ? data.code : "Sin matriz")
+
+            for (var i = 0; i < N; i++) {
+              for (var j = 0; j < N; j++) {
+                if (i === j) {
+                  distMatrix[i][j] = 0
+                  continue
+                }
+                // Las celdas editadas manualmente tienen prioridad.
+                if (matrixManual[matrixKey(i, j)] == null) {
+                  var meters = data.distances[i] && data.distances[i][j]
+                  if (meters != null && isFinite(meters)) distMatrix[i][j] = Math.round((meters / 1000) * 10) / 10
+                }
+              }
+            }
+            setRouteStatus("✓ Matriz actualizada con distancias viales reales (OSRM)", false)
+            actualizarResultadosDesdeRutaReal()
+            actualizarTodo(true)
+          } catch (error) {
+            if (requestId !== matrixRequestId) return
+            setRouteStatus("⚠ No se pudo actualizar la matriz vial; se mantienen las distancias locales/editadas.", true)
+            console.warn("OSRM Table error:", error)
+          } finally {
+            if (requestId === matrixRequestId && matrixLoading) matrixLoading.style.display = "none"
+          }
+        }
+
+        function programarMatrizVial() {
+          clearTimeout(matrixRequestTimer)
+          matrixRequestTimer = setTimeout(actualizarMatrizPorCarretera, 600)
+        }
+
+        // ===================================================================
+        // 4. ESTADO
+        // ===================================================================
+        var distMatrix = computeDistanceMatrix()
+        var selectedOrder = []
+
+        var matrixTable = document.getElementById("matrixTable")
+        var checkboxGrid = document.getElementById("checkboxGrid")
+        var destinoSearch = document.getElementById("destinoSearch")
+        var countSelected = document.getElementById("countSelected")
+        var orderPreview = document.getElementById("orderPreview")
+        var distTotalEl = document.getElementById("distTotal")
+        var consumoEl = document.getElementById("consumo")
+        var costoEl = document.getElementById("costo")
+        var tramosCountEl = document.getElementById("tramosCount")
+        var routeSummaryEl = document.getElementById("routeSummary")
+        var routeStatusEl = document.getElementById("routeStatus")
+        var matrixInfo = document.getElementById("matrixInfo")
+        var matrixLoading = document.getElementById("matrixLoading")
+        var nuevaProvincia = document.getElementById("nuevaProvincia")
+        var geocodeCandidates = document.getElementById("geocodeCandidates")
+        var configStatus = document.getElementById("configStatus")
+        var connectionBanner = document.getElementById("connectionBanner")
+        var coordModal = document.getElementById("coordModal")
+        var coordMapElement = document.getElementById("coordMap")
+        var coordEditIndex = -1
+        var coordMap = null
+        var coordMarker = null
+
+        var rendimientoInput = document.getElementById("rendimiento")
+        var factorInput = document.getElementById("factorCiudad")
+        var precioInput = document.getElementById("precio")
+
+        // Estado de la ruta real (OSRM). Ahora guardamos ida y vuelta por separado.
+        var realRoute = {
+          status: "idle",
+          idaDistanceKm: 0,
+          idaDurationSec: 0,
+          idaGeometry: null,
+          idaTramos: [],   // Array de tramos de ida (cada uno con dist)
+          vueltaDistanceKm: 0,
+          vueltaDurationSec: 0,
+          vueltaGeometry: null
+        }
+        var routeRequestId = 0
+        var routeRequestTimer = null
+
+        // ===================================================================
+        // 5. FUNCIONES DE ACTUALIZACIÓN
+        // ===================================================================
+        function getVal(input, fallback) {
+          var v = parseFloat(input.value)
+          return isNaN(v) ? fallback : v
+        }
+
+        // --- Algoritmo TSP: vecino más cercano ---
+        function tspNearestNeighbor(selectedIndices) {
+          if (selectedIndices.length === 0) return []
+          if (selectedIndices.length === 1) return selectedIndices.slice()
+
+          var n = selectedIndices.length
+          var visited = new Array(n).fill(false)
+          var order = []
+
+          var first = -1
+          var minDist = Infinity
+          for (var k = 0; k < n; k++) {
+            var d = distMatrix[0][selectedIndices[k]]
+            if (d < minDist) {
+              minDist = d
+              first = k
+            }
+          }
+          order.push(selectedIndices[first])
+          visited[first] = true
+          var current = selectedIndices[first]
+
+          for (var step = 1; step < n; step++) {
+            var best = -1
+            var bestDist = Infinity
+            for (var k2 = 0; k2 < n; k2++) {
+              if (!visited[k2]) {
+                var d2 = distMatrix[current][selectedIndices[k2]]
+                if (d2 < bestDist) {
+                  bestDist = d2
+                  best = k2
+                }
+              }
+            }
+            if (best === -1) break
+            order.push(selectedIndices[best])
+            visited[best] = true
+            current = selectedIndices[best]
+          }
+          return order
+        }
+
+        function calcularRutaFallback() {
+          var tramos = []
+          if (selectedOrder.length === 0) return { total: 0, tramos: [] }
+          var first = selectedOrder[0]
+          var d = distMatrix[0][first]
+          tramos.push({ from: 0, to: first, dist: d })
+          for (var i = 0; i < selectedOrder.length - 1; i++) {
+            var from = selectedOrder[i], to = selectedOrder[i + 1]
+            var dd = distMatrix[from][to]
+            tramos.push({ from: from, to: to, dist: dd })
+            d += dd
+          }
+          var last = selectedOrder[selectedOrder.length - 1]
+          var db = distMatrix[last][0]
+          tramos.push({ from: last, to: 0, dist: db })
+          d += db
+          return { total: d, tramos: tramos }
+        }
+
+        function setRouteStatus(message, isError) {
+          if (!routeStatusEl) return
+          routeStatusEl.textContent = message || ""
+          routeStatusEl.style.color = isError ? "#b42318" : "#4b6a86"
+        }
+
+        function formatDuration(seconds) {
+          if (!isFinite(seconds) || seconds <= 0) return ""
+          var mins = Math.round(seconds / 60)
+          if (mins < 60) return mins + " min"
+          var h = Math.floor(mins / 60), m = mins % 60
+          return h + " h" + (m ? " " + m + " min" : "")
+        }
+
+        // Construir URL de OSRM dado un array de índices (incluyendo base)
+        function buildOsrmUrl(indices) {
+          var coordinateString = indices.map(function (idx) {
+            return COORDS[idx][1] + "," + COORDS[idx][0]
+          }).join(";")
+          // Pedimos rutas alternativas y pasos para poder priorizar recorridos
+          // por vías conocidas/principales, en lugar de escoger siempre el
+          // primer trazado más corto que devuelva el motor.
+          return "https://router.project-osrm.org/route/v1/driving/" + coordinateString +
+            "?overview=full&geometries=geojson&steps=true&alternatives=true&continue_straight=false&generate_hints=false"
+        }
+
+        // Fetch individual a OSRM, devuelve { distanceKm, durationSec, geometry, legs }
+        async function fetchOsrmRoute(indices) {
+          if (indices.length < 2) return null
+          var url = buildOsrmUrl(indices)
+          var response = await fetch(url, {
+            headers: { Accept: "application/json" },
+            cache: "no-store"
+          })
+          if (!response.ok) throw new Error("HTTP " + response.status)
+          var data = await response.json()
+          if (!data || data.code !== "Ok" || !data.routes || !data.routes[0]) {
+            throw new Error(data && data.code ? data.code : "Sin ruta")
+          }
+          // OSRM puede devolver varias alternativas. Para el cálculo de
+          // trayectoria preferimos una ruta razonablemente cercana a la más
+          // corta, pero con mayor presencia de carreteras identificadas
+          // (nombre o referencia), que normalmente son las vías más conocidas
+          // y fáciles de seguir para el conductor.
+          var routes = data.routes || []
+          var shortestKm = Infinity
+          routes.forEach(function (r) {
+            var km = (r.distance || 0) / 1000
+            if (km > 0 && km < shortestKm) shortestKm = km
+          })
+          if (!isFinite(shortestKm)) shortestKm = (routes[0].distance || 0) / 1000
+
+          function knownRoadScore(route) {
+            var steps = []
+            ;(route.legs || []).forEach(function (leg) {
+              ;(leg.steps || []).forEach(function (step) { steps.push(step) })
+            })
+            if (!steps.length) return 0
+            var named = 0
+            var referenced = 0
+            steps.forEach(function (step) {
+              if (step.name && String(step.name).trim()) named++
+              if (step.ref && String(step.ref).trim()) referenced++
+            })
+            // La referencia vial pesa más: suele identificar carreteras
+            // principales (p.ej. referencias de carretera) frente a calles locales.
+            return (named / steps.length) + 1.5 * (referenced / steps.length)
+          }
+
+          var candidates = routes.filter(function (r) {
+            var km = (r.distance || 0) / 1000
+            // Evitar desvíos exagerados: como máximo 25% sobre la ruta más corta.
+            return km <= shortestKm * 1.25 + 0.01
+          })
+          if (!candidates.length) candidates = routes.slice()
+
+          candidates.sort(function (a, b) {
+            var scoreDiff = knownRoadScore(b) - knownRoadScore(a)
+            if (Math.abs(scoreDiff) > 0.05) return scoreDiff
+            return (a.distance || 0) - (b.distance || 0)
+          })
+
+          var route = candidates[0]
+          return {
+            distanceKm: (route.distance || 0) / 1000,
+            durationSec: route.duration || 0,
+            geometry: route.geometry || null,
+            legs: (route.legs || []).map(function (leg) {
+              return {
+                distanceKm: (leg.distance || 0) / 1000,
+                durationSec: leg.duration || 0
+              }
+            })
+          }
+        }
+
+        async function obtenerRutaReal() {
+          // Sin conexión: fallback local
+          if (!navigator.onLine) {
+            realRoute.status = "offline"
+            setRouteStatus("📐 Sin conexión: cálculo local por coordenadas (Haversine)", false)
+            actualizarResultadosDesdeRutaReal()
+            renderMapRoute()
+            return
+          }
+
+          // Sin destinos seleccionados
+          if (selectedOrder.length === 0) {
+            realRoute = {
+              status: "idle",
+              idaDistanceKm: 0, idaDurationSec: 0, idaGeometry: null, idaTramos: [],
+              vueltaDistanceKm: 0, vueltaDurationSec: 0, vueltaGeometry: null
+            }
+            setRouteStatus("")
+            renderMapRoute()
+            actualizarResultadosDesdeRutaReal()
+            return
+          }
+
+          var requestId = ++routeRequestId
+          realRoute.status = "loading"
+          setRouteStatus("🗺️ Calculando por vías conocidas/principales (OSRM)…")
+          mapLoading.style.display = "block"
+
+          try {
+            // IDA: base -> destinos en orden
+            var idaIndices = [0].concat(selectedOrder)
+            // VUELTA: último destino -> base
+            var vueltaIndices = [selectedOrder[selectedOrder.length - 1], 0]
+
+            // Hacer las dos consultas en paralelo
+            var results = await Promise.all([
+              fetchOsrmRoute(idaIndices),
+              fetchOsrmRoute(vueltaIndices)
+            ])
+            if (requestId !== routeRequestId) return
+
+            var ida = results[0]
+            var vuelta = results[1]
+
+            if (!ida || !vuelta) throw new Error("Sin ruta")
+
+            realRoute = {
+              status: "ready",
+              idaDistanceKm: ida.distanceKm,
+              idaDurationSec: ida.durationSec,
+              idaGeometry: ida.geometry,
+              idaTramos: ida.legs, // cada leg corresponde a un tramo de ida
+              vueltaDistanceKm: vuelta.distanceKm,
+              vueltaDurationSec: vuelta.durationSec,
+              vueltaGeometry: vuelta.geometry
+            }
+
+            var totalKm = ida.distanceKm + vuelta.distanceKm
+            var totalDur = ida.durationSec + vuelta.durationSec
+            var durationText = formatDuration(totalDur)
+            setRouteStatus(
+              "✓ Ruta por vías conocidas/principales (ida + vuelta): " + totalKm.toFixed(1) + " km" +
+                (durationText ? " · " + durationText : ""),
+              false
+            )
+            actualizarResultadosDesdeRutaReal()
+            renderMapRoute()
+          } catch (error) {
+            if (requestId !== routeRequestId) return
+            realRoute.status = "error"
+            setRouteStatus("⚠ Falló la ruta vial (OSRM). Usando cálculo local (Haversine).", true)
+            actualizarResultadosDesdeRutaReal()
+            renderMapRoute()
+            console.warn("OSRM error:", error)
+          } finally {
+            if (requestId === routeRequestId) mapLoading.style.display = "none"
+          }
+        }
+
+        function programarRutaReal() {
+          clearTimeout(routeRequestTimer)
+          routeRequestTimer = setTimeout(obtenerRutaReal, 350)
+        }
+
+        function actualizarResultadosDesdeRutaReal() {
+          var fallback = calcularRutaFallback()
+          var total, tramos
+
+          if (realRoute.status === "ready") {
+            total = realRoute.idaDistanceKm + realRoute.vueltaDistanceKm
+            // Construir tramos: los legs de ida + el tramo de vuelta
+            var tramosIda = realRoute.idaTramos.map(function (leg, i) {
+              var from = i === 0 ? 0 : selectedOrder[i - 1]
+              var to = selectedOrder[i]
+              return { from: from, to: to, dist: leg.distanceKm }
+            })
+            var tramosVuelta = [{
+              from: selectedOrder[selectedOrder.length - 1],
+              to: 0,
+              dist: realRoute.vueltaDistanceKm
+            }]
+            tramos = tramosIda.concat(tramosVuelta)
+          } else {
+            total = fallback.total
+            tramos = fallback.tramos
+          }
+
+          var rend = getVal(rendimientoInput, 8)
+          var factor = getVal(factorInput, 1.15)
+          var precio = getVal(precioInput, 2000)
+
+          // Consumo basado únicamente en los parámetros existentes y la
+          // distancia total calculada (ida + vuelta).
+          var consumo = rend > 0 ? (total / rend) * factor : 0
+          var costo = consumo * precio
+
+          distTotalEl.innerHTML = total.toFixed(1) + " <small>km</small>"
+          consumoEl.innerHTML = consumo.toFixed(2) + " <small>L</small>"
+          var costoFormateado = new Intl.NumberFormat("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(costo)
+          costoEl.innerHTML = costoFormateado + " <small>CUP</small>"
+          tramosCountEl.textContent = tramos.length + " tramo" + (tramos.length !== 1 ? "s" : "")
+
+          if (selectedOrder.length === 0) {
+            routeSummaryEl.innerHTML = '<span class="empty-msg">Selecciona destinos para ver la ruta</span>'
+            return
+          }
+
+          var html = '<span class="step">🏁 Base</span>'
+          for (var i = 0; i < selectedOrder.length; i++) {
+            var idx = selectedOrder[i]
+            var nombre = DESTINOS[idx].replace(/^Base \(.*?\)$/, "Base").replace(/\([^)]*\)\s*/, "").trim() || DESTINOS[idx]
+            var distText = tramos[i] ? ' <small style="color:#64748b">(' + tramos[i].dist.toFixed(1) + " km)</small>" : ""
+            html += ' <span class="arrow">→</span> <span class="step">' + nombre + distText + "</span>"
+          }
+          var lastLeg = tramos[tramos.length - 1]
+          html += ' <span class="arrow">→</span> <span class="step">🏁 Base' +
+            (lastLeg ? ' <small style="color:#64748b">(' + lastLeg.dist.toFixed(1) + " km)</small>" : "") + "</span>"
+          routeSummaryEl.innerHTML = html
+        }
+
+        function getSelectedIndices() {
+          var checked = []
+          var cbs = checkboxGrid.querySelectorAll('input[type="checkbox"]')
+          cbs.forEach(function (cb) {
+            if (cb.checked) checked.push(parseInt(cb.value))
+          })
+          return checked
+        }
+
+        function actualizarTodo(skipMatrixVial) {
+          renderCheckboxes()
+          var selected = getSelectedIndices()
+          var ordenOptimo = tspNearestNeighbor(selected)
+          selectedOrder = ordenOptimo
+
+          countSelected.textContent = String(selected.length)
+          if (selected.length === 0) {
+            orderPreview.innerHTML = "Orden: <em>ninguno</em>"
+          } else {
+            var nombres = selectedOrder.map(function (i) {
+              return DESTINOS[i].replace(/\([^)]*\)\s*/, "").trim() || DESTINOS[i]
+            })
+            orderPreview.innerHTML = "Orden (óptimo): <strong>" + nombres.join(" → ") + "</strong>"
+          }
+
+          actualizarResultadosDesdeRutaReal()
+          if (map) {
+            renderMapMarkers()
+            renderMapRoute()
+            centrarMapaEnRuta()
+          }
+
+          programarRutaReal()
+          if (!skipMatrixVial) programarMatrizVial()
+        }
+
+        function centrarMapaEnRuta() {
+          if (!map) return
+          var points = [[COORDS[0][0], COORDS[0][1]]]
+          for (var i = 0; i < selectedOrder.length; i++) {
+            var idx = selectedOrder[i]
+            points.push([COORDS[idx][0], COORDS[idx][1]])
+          }
+          if (selectedOrder.length > 0) {
+            points.push([COORDS[0][0], COORDS[0][1]])
+          } else {
+            for (var i = 0; i < COORDS.length; i++) {
+              points.push([COORDS[i][0], COORDS[i][1]])
+            }
+          }
+
+          var bounds = L.latLngBounds(points)
+          if (bounds.isValid()) {
+            map.fitBounds(bounds, {
+              paddingTopLeft: [50, 50],
+              paddingBottomRight: [50, 50],
+              maxZoom: 13,
+              animate: true,
+            })
+          }
+        }
+
+        // ===================================================================
+        // 6. MATRIZ
+        // ===================================================================
+        function renderMatrix() {
+          // La matriz de distancias ya no forma parte de la interfaz.
+          // Se conserva la función como compatibilidad para configuraciones
+          // antiguas, pero nunca debe detener el cálculo de la ruta.
+          if (!matrixTable) return
+          var thead = matrixTable.querySelector("thead")
+          var tbody = matrixTable.querySelector("tbody")
+          if (!thead) { thead = document.createElement("thead"); matrixTable.appendChild(thead) }
+          if (!tbody) { tbody = document.createElement("tbody"); matrixTable.appendChild(tbody) }
+          thead.innerHTML = ""; tbody.innerHTML = ""
+          matrixTable.style.display = "table"; matrixScroll.style.display = "block"; matrixScroll.style.visibility = "visible"
+          var info = document.getElementById("matrixInfo"); if (info) info.textContent = N + " × " + N
+
+          // Agrupación SOLO vertical: la primera columna/lista de destinos se agrupa por provincia.
+          // Las columnas horizontales conservan el orden original y no tienen grupos provinciales.
+          var matrixOrder = []
+          var provinciaGroups = {}
+          for (var g = 1; g < N; g++) {
+            var prov = getProvincia(g)
+            if (!provinciaGroups[prov]) provinciaGroups[prov] = []
+            provinciaGroups[prov].push(g)
+          }
+          var provinciaNames = Object.keys(provinciaGroups).sort(function(a,b){ return a.localeCompare(b, "es", {sensitivity:"base"}) })
+          provinciaNames.forEach(function(prov){
+            provinciaGroups[prov].sort(function(a,b){ return DESTINOS[a].localeCompare(DESTINOS[b], "es", {sensitivity:"base"}) })
+            matrixOrder = matrixOrder.concat(provinciaGroups[prov])
+          })
+
+          // Encabezado horizontal normal, sin agrupación por provincia.
+          var headerRow = document.createElement("tr")
+          var th0 = document.createElement("th"); th0.textContent = "Destino"; headerRow.appendChild(th0)
+          for (var j = 0; j < N; j++) {
+            var th = document.createElement("th")
+            var nombre = DESTINOS[j].replace(/^Base \(.*?\)$/, "Base").replace(/\([^)]*\)\s*/, "").trim() || DESTINOS[j]
+            th.textContent = nombre.length > 12 ? nombre.slice(0, 10) + "…" : nombre
+            th.title = DESTINOS[j]; headerRow.appendChild(th)
+          }
+          thead.appendChild(headerRow)
+
+          // Base como primera fila normal.
+          var baseRow = document.createElement("tr")
+          var baseLabel = document.createElement("td"); baseLabel.textContent = "Base"
+          baseLabel.style.fontWeight="700"; baseLabel.style.fontSize="11px"; baseLabel.style.color="#1e3a5f"; baseLabel.style.background="#f2f6fc"
+          baseLabel.style.borderRight="2px solid #cbd5e1"; baseLabel.style.position="sticky"; baseLabel.style.left="0"; baseLabel.style.zIndex="8"
+          baseRow.appendChild(baseLabel)
+          for (var bj=0; bj<N; bj++) {
+            var btd=document.createElement("td"), bin=document.createElement("input")
+            bin.type="number"; bin.step="0.1"; bin.min="0"; bin.value=distMatrix[0][bj].toString(); bin.disabled=!navigator.onLine
+            if (bj===0) { bin.readOnly=true; btd.className="diag" } else {
+              bin.addEventListener("input", (function(j2){ return function(){ var val=parseFloat(this.value); if(!isNaN(val)&&val>=0){ var rounded=Math.round(val*10)/10; distMatrix[0][j2]=rounded; distMatrix[j2][0]=rounded; matrixManual[matrixKey(0,j2)]=rounded; matrixManual[matrixKey(j2,0)]=rounded; actualizarTodo(true) } } })(bj))
+              bin.addEventListener("blur", (function(j2){ return function(){ var val=parseFloat(this.value); if(isNaN(val)||val<0) val=0; var rounded=Math.round(val*10)/10; this.value=rounded.toString(); distMatrix[0][j2]=rounded; distMatrix[j2][0]=rounded; matrixManual[matrixKey(0,j2)]=rounded; matrixManual[matrixKey(j2,0)]=rounded } })(bj))
+            }
+            btd.appendChild(bin); baseRow.appendChild(btd)
+          }
+          tbody.appendChild(baseRow)
+
+          // Cada provincia aparece como una fila separadora que ocupa toda la tabla.
+          provinciaNames.forEach(function(prov){
+            var groupRow=document.createElement("tr"); groupRow.className="matrix-province-row"
+            var groupCell=document.createElement("td"); groupCell.colSpan=N+1; groupCell.className="matrix-province-vertical-header"; groupCell.textContent=prov
+            groupRow.appendChild(groupCell); tbody.appendChild(groupRow)
+
+            provinciaGroups[prov].forEach(function(i){
+              var tr=document.createElement("tr"), tdLabel=document.createElement("td"), nameWrap=document.createElement("div"), labelSpan=document.createElement("span")
+              nameWrap.className="matrix-name-wrap"
+              labelSpan.textContent=DESTINOS[i].replace(/^Base \(.*?\)$/, "Base").replace(/\([^)]*\)\s*/, "").trim() || DESTINOS[i]
+              labelSpan.title=DESTINOS[i]; nameWrap.appendChild(labelSpan)
+              var coordBtn=document.createElement("button"); coordBtn.type="button"; coordBtn.className="coord-edit-btn requires-online"; coordBtn.textContent="📍"; coordBtn.title="Cambiar coordenadas georeferenciales"; coordBtn.setAttribute("aria-label","Cambiar coordenadas de "+DESTINOS[i]); coordBtn.disabled=!navigator.onLine
+              coordBtn.addEventListener("click", (function(idx){ return function(){ abrirEditorCoordenadas(idx) } })(i)); nameWrap.appendChild(coordBtn)
+              tdLabel.appendChild(nameWrap); tdLabel.style.fontWeight="600"; tdLabel.style.fontSize="11px"; tdLabel.style.color="#1e3a5f"; tdLabel.style.background="#f2f6fc"; tdLabel.style.borderRight="2px solid #cbd5e1"; tdLabel.style.position="sticky"; tdLabel.style.left="0"; tdLabel.style.zIndex="8"
+              tr.appendChild(tdLabel)
+
+              // Las columnas siguen siendo Base + todos los destinos en el orden original.
+              for(var j2=0;j2<N;j2++){
+                var td=document.createElement("td"), input=document.createElement("input")
+                input.type="number"; input.step="0.1"; input.min="0"; input.value=distMatrix[i][j2].toString(); input.disabled=!navigator.onLine
+                if(i===j2){ input.readOnly=true; td.className="diag" } else {
+                  input.addEventListener("input", (function(i,j2){ return function(){ var val=parseFloat(this.value); if(!isNaN(val)&&val>=0){ var rounded=Math.round(val*10)/10; distMatrix[i][j2]=rounded; distMatrix[j2][i]=rounded; matrixManual[matrixKey(i,j2)]=rounded; matrixManual[matrixKey(j2,i)]=rounded; actualizarTodo(true) } } })(i,j2))
+                  input.addEventListener("blur", (function(i,j2){ return function(){ var val=parseFloat(this.value); if(isNaN(val)||val<0) val=0; var rounded=Math.round(val*10)/10; this.value=rounded.toString(); distMatrix[i][j2]=rounded; distMatrix[j2][i]=rounded; matrixManual[matrixKey(i,j2)]=rounded; matrixManual[matrixKey(j2,i)]=rounded } })(i,j2))
+                }
+                td.appendChild(input); tr.appendChild(td)
+              }
+              tbody.appendChild(tr)
+            })
+          })
+        }
+
+        function findSiblingInput(i, j) {
+          var tbody = matrixTable.querySelector("tbody")
+          if (!tbody) return null
+          var rows = tbody.querySelectorAll("tr")
+          if (j >= rows.length) return null
+          var row = rows[j]
+          var cells = row.querySelectorAll("td")
+          if (i + 1 >= cells.length) return null
+          return cells[i + 1].querySelector("input")
+        }
+
+        // ===================================================================
+        // 7. CHECKBOXES
+        // ===================================================================
+        // Relación FIJA de destinos → provincia.
+// Se define a partir de las coordenadas georreferenciadas de los destinos
+// y no se recalcula ni consulta servicios externos en tiempo real.
+        var PROVINCIA_FIJA = {
+          "Nuevo Vista Alegre": "Santiago de Cuba",
+          "Agüero": "Santiago de Cuba",
+          "Vista Alegre": "Santiago de Cuba",
+          "Santa Bárbara": "Santiago de Cuba",
+          "Santiago Centro": "Santiago de Cuba",
+          "Sueño": "Santiago de Cuba",
+          "Veguita de Galo": "Santiago de Cuba",
+          "Terrazas": "Santiago de Cuba",
+          "Micro 1A (Abel Santamaría)": "Santiago de Cuba",
+          "Micro 1B (Abel Santamaría)": "Santiago de Cuba",
+          "Micro 2 (Abel Santamaría)": "Santiago de Cuba",
+          "Micro 3": "Santiago de Cuba",
+          "Chicharrones": "Santiago de Cuba",
+          "La Asunción": "Santiago de Cuba",
+          "Altamira": "Santiago de Cuba",
+          "Vista Hermosa": "Santiago de Cuba",
+          "30 de Noviembre": "Santiago de Cuba",
+          "Mariana de la Torre": "Santiago de Cuba",
+          "Versalles": "Santiago de Cuba",
+          "Pastorita": "Santiago de Cuba",
+          "El Caney": "Santiago de Cuba",
+          "Rajayoga": "Santiago de Cuba",
+          "El Cristo": "Santiago de Cuba",
+          "Distrito José Martí": "Santiago de Cuba",
+          "Micro 7": "Santiago de Cuba",
+          "Micro 8": "Santiago de Cuba",
+          "Micro 9": "Santiago de Cuba",
+          "Reparto Antonio Maceo": "Santiago de Cuba",
+          "Van Van": "Santiago de Cuba",
+          "Los Hoyos": "Santiago de Cuba",
+          "Marimón": "Santiago de Cuba",
+          "Dessy": "Santiago de Cuba",
+          "Flores": "Santiago de Cuba",
+          "El polvorín": "Santiago de Cuba",
+          "Portuondo": "Santiago de Cuba",
+          "Sevilla": "Santiago de Cuba",
+          "Las Guásimas": "Santiago de Cuba",
+          "Siboney": "Santiago de Cuba",
+          "El Oasis": "Santiago de Cuba",
+          "Palma Soriano (Municipio)": "Santiago de Cuba",
+          "Contramaestre (Municipio)": "Santiago de Cuba",
+          "San Luis (Municipio)": "Santiago de Cuba",
+          "La Maya - Songo-La Maya (Municipio)": "Santiago de Cuba",
+          "Mayarí Arriba - Segundo Frente (Municipio)": "Santiago de Cuba",
+          "Cruce de los Baños - Tercer Frente (Municipio)": "Santiago de Cuba",
+          "Chivirico - Guamá (Municipio)": "Santiago de Cuba",
+          "Mella (Municipio)": "Santiago de Cuba",
+          "Guantánamo (Centro municipal)": "Guantánamo",
+          "Baracoa (Municipio)": "Guantánamo",
+          "Caimanera (Municipio)": "Guantánamo",
+          "El Salvador (Municipio)": "Guantánamo",
+          "Imías (Municipio)": "Guantánamo",
+          "Maisí (Municipio)": "Guantánamo",
+          "Manuel Tames (Municipio)": "Guantánamo",
+          "Niceto Pérez (Municipio)": "Guantánamo",
+          "San Antonio del Sur (Municipio)": "Guantánamo",
+          "Yateras (Municipio)": "Guantánamo"
+        }
+
+        function getProvincia(idx) {
+          var nombre = DESTINOS[idx]
+          if (idx === 0) return "Santiago de Cuba"
+          return PROVINCIA_FIJA[nombre] || "Santiago de Cuba"
+        }
+
+        function renderCheckboxes() {
+
+          var currentChecked = getSelectedIndices()
+          var query = destinoSearch ? destinoSearch.value.trim().toLowerCase() : ""
+          checkboxGrid.innerHTML = ""
+          var visibleCount = 0
+          var grupos = {}
+
+          for (var i = 1; i < N; i++) {
+            var nombre = DESTINOS[i].replace(/\([^)]*\)\s*/, "").trim() || DESTINOS[i]
+            var searchable = (DESTINOS[i] + " " + nombre).toLowerCase()
+            if (query && searchable.indexOf(query) === -1) continue
+
+            var provincia = getProvincia(i)
+            if (!grupos[provincia]) grupos[provincia] = []
+            grupos[provincia].push({ idx: i, nombre: nombre })
+            visibleCount++
+          }
+
+          var nombresProvincia = Object.keys(grupos).sort(function (a, b) {
+            if (a === "Ubicación por verificar") return 1
+            if (b === "Ubicación por verificar") return -1
+            return a.localeCompare(b, "es", { sensitivity: "base" })
+          })
+
+          nombresProvincia.forEach(function (provincia) {
+            var header = document.createElement("div")
+            header.className = "province-group-header"
+            header.textContent = provincia
+            checkboxGrid.appendChild(header)
+
+            grupos[provincia].forEach(function (item) {
+              var label = document.createElement("label")
+              var cb = document.createElement("input")
+              cb.type = "checkbox"
+              cb.value = String(item.idx)
+              cb.checked = currentChecked.indexOf(item.idx) !== -1
+              cb.disabled = !navigator.onLine
+
+              var spanNombre = document.createElement("span")
+              spanNombre.textContent = item.nombre
+
+              label.appendChild(cb)
+              label.appendChild(spanNombre)
+
+              var editBtn = document.createElement("button")
+              editBtn.type = "button"
+              editBtn.className = "coord-edit-btn requires-online destination-edit-btn"
+              editBtn.textContent = "📍"
+              editBtn.title = "Editar localización"
+              editBtn.setAttribute("aria-label", "Editar localización de " + item.nombre)
+              editBtn.disabled = !navigator.onLine
+              editBtn.addEventListener("click", function (ev) {
+                ev.preventDefault()
+                ev.stopPropagation()
+                abrirEditorCoordenadas(item.idx)
+              })
+
+              label.appendChild(editBtn)
+              cb.addEventListener("change", function () { actualizarTodo() })
+              checkboxGrid.appendChild(label)
+            })
+          })
+
+          if (visibleCount === 0) {
+            var empty = document.createElement("div")
+            empty.className = "destination-empty"
+            empty.textContent = query ? "No se encontraron destinos." : "No hay destinos disponibles."
+            checkboxGrid.appendChild(empty)
+          }
+        }
+
+        if (destinoSearch) {
+          destinoSearch.addEventListener("input", function () {
+            renderCheckboxes()
+          })
+        }
+
+        // ===================================================================
+        // EDITOR DE COORDENADAS
+        // ===================================================================
+        function cerrarEditorCoordenadas() {
+          coordEditIndex = -1
+          if (coordModal) { coordModal.classList.remove("open"); coordModal.setAttribute("aria-hidden", "true") }
+        }
+
+        function actualizarEditorCoordenadasDesdeMapa(lat, lon) {
+          document.getElementById("editLat").value = Number(lat).toFixed(6)
+          document.getElementById("editLon").value = Number(lon).toFixed(6)
+          if (coordMarker) coordMarker.setLatLng([lat, lon])
+        }
+
+        function abrirEditorCoordenadas(idx) {
+          if (!navigator.onLine) { setRouteStatus("📡 Sin conexión: las operaciones sobre destinos están bloqueadas.", true); return }
+          coordEditIndex = idx
+          var lat = COORDS[idx][0], lon = COORDS[idx][1]
+          document.getElementById("coordModalDestino").textContent = DESTINOS[idx]
+          document.getElementById("editLat").value = Number(lat).toFixed(6)
+          document.getElementById("editLon").value = Number(lon).toFixed(6)
+          document.getElementById("coordStatus").textContent = "Coordenadas actuales: " + Number(lat).toFixed(6) + ", " + Number(lon).toFixed(6)
+          coordModal.classList.add("open")
+          coordModal.setAttribute("aria-hidden", "false")
+          setTimeout(function () {
+            if (!coordMap) {
+              coordMap = L.map(coordMapElement, { zoomControl: true, scrollWheelZoom: true }).setView([lat, lon], 14)
+              L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap contributors" }).addTo(coordMap)
+              coordMap.on("click", function (e) {
+                if (!navigator.onLine) return
+                actualizarEditorCoordenadasDesdeMapa(e.latlng.lat, e.latlng.lng)
+              })
+            } else {
+              coordMap.setView([lat, lon], Math.max(coordMap.getZoom(), 14))
+              coordMap.invalidateSize()
+            }
+            if (coordMarker) coordMarker.remove()
+            coordMarker = L.marker([lat, lon], { draggable: true }).addTo(coordMap)
+            coordMarker.on("dragend", function () {
+              var p = coordMarker.getLatLng()
+              actualizarEditorCoordenadasDesdeMapa(p.lat, p.lng)
+            })
+          }, 80)
+        }
+
+        function guardarCoordenadasEditadas() {
+          if (!navigator.onLine || coordEditIndex < 0) return
+          var lat = parseFloat(document.getElementById("editLat").value)
+          var lon = parseFloat(document.getElementById("editLon").value)
+          if (!isFinite(lat) || !isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+            document.getElementById("coordStatus").textContent = "⚠ Coordenadas inválidas."
+            return
+          }
+          var idx = coordEditIndex
+          for (var j = 0; j < N; j++) {
+            delete matrixManual[matrixKey(idx, j)]
+            delete matrixManual[matrixKey(j, idx)]
+          }
+          COORDS[idx] = [Number(lat.toFixed(6)), Number(lon.toFixed(6))]
+          distMatrix = computeDistanceMatrix()
+          actualizarTodo(true)
+          setRouteStatus("✓ Coordenadas actualizadas. Recalculando distancias hacia todos los destinos…", false)
+          cerrarEditorCoordenadas()
+          fitAllDestinations([20, 20])
+          programarMatrizVial()
+        }
+
+        document.getElementById("coordModalClose").addEventListener("click", cerrarEditorCoordenadas)
+        document.getElementById("coordCancel").addEventListener("click", cerrarEditorCoordenadas)
+        document.getElementById("coordModalBackdrop").addEventListener("click", cerrarEditorCoordenadas)
+        document.getElementById("coordSave").addEventListener("click", guardarCoordenadasEditadas)
+
+        // ===================================================================
+        // 8. MAPA
+        // ===================================================================
+        var mapContainer = document.getElementById("mapContainer")
+        var mapElement = document.getElementById("mapCanvas")
+        var mapLoading = document.getElementById("mapLoading")
+        var expandBtn = document.getElementById("mapExpandBtn")
+        var offlineWarning = document.getElementById("offlineWarning")
+        var retryBtn = document.getElementById("retryConnectionBtn")
+        var isExpanded = false
+
+        var map = L.map(mapElement, {
+          preferCanvas: true,
+          zoomControl: true,
+          scrollWheelZoom: true,
+          doubleClickZoom: true,
+          touchZoom: true,
+          dragging: true,
+          boxZoom: true,
+          keyboard: true,
+          worldCopyJump: false,
+          minZoom: 10,
+          maxZoom: 19,
+          zoomSnap: 1,
+          zoomDelta: 1,
+        }).setView([20.02, -75.82], 13)
+
+        var osmLayer = L.tileLayer(
+          "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          {
+            attribution: "&copy; OpenStreetMap contributors",
+            maxZoom: 19,
+            maxNativeZoom: 19,
+            updateWhenZooming: false,
+            updateWhenIdle: true,
+            updateInterval: 250,
+            keepBuffer: 1,
+            detectRetina: false,
+            subdomains: ["a", "b", "c"],
+            crossOrigin: true,
+          },
+        )
+
+        var markerLayer = L.layerGroup().addTo(map)
+        var routeLayer = L.layerGroup().addTo(map)
+        var boundsFittedOnce = false
+        var markerRefs = []
+
+        // === Leyenda y control para mostrar/ocultar ===
+        // Oculta la leyenda por defecto; el botón permite mostrarla.
+        var legendVisible = false
+        var legendControl = L.control({ position: "bottomright" })
+        legendControl.onAdd = function () {
+          var div = L.DomUtil.create("div", "info legend")
+          div.style.background = "white"
+          div.style.padding = "10px 14px"
+          div.style.borderRadius = "8px"
+          div.style.boxShadow = "0 2px 8px rgba(0,0,0,0.15)"
+          div.style.fontSize = "13px"
+          div.style.lineHeight = "1.6"
+          div.style.minWidth = "130px"
+          div.id = "mapLegend"
+          div.style.display = legendVisible ? "block" : "none"
+          div.innerHTML = `
+            <div style="font-weight:600; margin-bottom:6px; color:#1e293b;">🗺️ Leyenda de ruta</div>
+            <div style="display:flex; align-items:center; gap:8px; margin:3px 0;"><span style="display:inline-block; width:26px; height:4px; background:#2563eb; border-radius:2px;"></span><span>Ida (OSRM)</span></div>
+            <div style="display:flex; align-items:center; gap:8px; margin:3px 0;"><span style="display:inline-block; width:26px; height:0; border-top:4px dashed #f59e0b;"></span><span>Vuelta (OSRM)</span></div>
+            <div style="display:flex; align-items:center; gap:8px; margin:3px 0; border-top:1px solid #e2e8f0; padding-top:6px;"><span style="display:inline-block; width:14px; height:14px; background:#2c3e50; border-radius:50%; border:2px solid white;"></span><span>Base</span></div>
+            <div style="display:flex; align-items:center; gap:8px; margin:3px 0;"><span style="display:inline-block; width:14px; height:14px; background:#2980b9; border-radius:50%; border:2px solid white;"></span><span>Destino seleccionado</span></div>
+            <div style="display:flex; align-items:center; gap:8px; margin:3px 0;"><span style="display:inline-block; width:14px; height:14px; background:#b0c4de; border-radius:50%; border:1px solid #8a9bb0;"></span><span>Otro destino</span></div>`
+          return div
+        }
+        legendControl.addTo(map)
+
+        var legendToggleControl = L.control({ position: "topright" })
+        legendToggleControl.onAdd = function () {
+          var button = L.DomUtil.create("button", "leaflet-control map-legend-toggle")
+          button.type = "button"
+          button.textContent = "☰ Leyenda"
+          button.title = "Mostrar u ocultar la leyenda"
+          L.DomEvent.disableClickPropagation(button)
+          L.DomEvent.on(button, "click", function () {
+            legendVisible = !legendVisible
+            var el = document.getElementById("mapLegend")
+            if (el) el.style.display = legendVisible ? "block" : "none"
+            button.textContent = legendVisible ? "☰ Leyenda" : "☰ Mostrar leyenda"
+          })
+          return button
+        }
+        legendToggleControl.addTo(map)
+
+        // Mantener el botón de expansión 8px debajo del control de leyenda.
+        function posicionarBotonExpansion() {
+          var expand = document.getElementById("mapExpandBtn")
+          var container = document.getElementById("mapContainer")
+          var legendControl = container && container.querySelector(".leaflet-top.leaflet-right")
+          if (!expand || !container || !legendControl) return
+
+          var control = legendControl.querySelector(".map-legend-toggle")
+          if (!control) return
+
+          var top = control.offsetTop + control.offsetHeight + 8
+          expand.style.top = top + "px"
+          expand.style.right = "10px"
+          expand.style.left = "auto"
+          expand.style.zIndex = "10000"
+        }
+
+        posicionarBotonExpansion()
+        window.addEventListener("resize", posicionarBotonExpansion)
+
+        function nombreVisible(idx) {
+          return DESTINOS[idx].replace(/^Base \(.*?\)$/, "Base").replace(/\([^)]*\)\s*/, "").trim() || DESTINOS[idx]
+        }
+
+        function escapeHtml(value) {
+          return String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;")
+        }
+
+        function popupHtml(idx) {
+          var selectedPos = selectedOrder.indexOf(idx)
+          var orderText = idx === 0 ? "Base" : (selectedPos !== -1 ? "Orden " + (selectedPos + 1) : "No seleccionado")
+          return (
+            '<div style="min-width:180px"><strong>' +
+            escapeHtml(nombreVisible(idx)) +
+            '</strong><br><span style="color:#4b6a86">' +
+            COORDS[idx][0].toFixed(5) + ", " + COORDS[idx][1].toFixed(5) +
+            "</span><br><span>" + orderText + "</span></div>"
+          )
+        }
+
+        function markerStyle(idx) {
+          if (idx === 0) {
+            return { radius: 9, color: "#ffffff", weight: 2, fillColor: "#2c3e50", fillOpacity: 1 }
+          }
+          var selected = selectedOrder.indexOf(idx) !== -1
+          return {
+            radius: selected ? 8 : 5,
+            color: "#ffffff",
+            weight: selected ? 2 : 1.5,
+            fillColor: selected ? "#2980b9" : "#b0c4de",
+            fillOpacity: 0.95,
+          }
+        }
+
+        function renderMapMarkers() {
+          markerLayer.clearLayers()
+          markerRefs = []
+          for (var i = 0; i < COORDS.length; i++) {
+            var marker = L.circleMarker([COORDS[i][0], COORDS[i][1]], markerStyle(i))
+            marker.bindTooltip(
+              nombreVisible(i) + (i === 0 ? " · Base" : (selectedOrder.indexOf(i) !== -1 ? " · #" + (selectedOrder.indexOf(i) + 1) : "")),
+              { direction: "top", offset: [0, -8], opacity: 0.95, sticky: false }
+            )
+            marker.bindPopup(popupHtml(i))
+            marker.addTo(markerLayer)
+            markerRefs[i] = marker
+          }
+        }
+
+        // Convierte geometría GeoJSON de OSRM a coordenadas Leaflet [lat, lng]
+        function geoJsonToLatLngs(geometry) {
+          if (!geometry || !geometry.coordinates) return []
+          return geometry.coordinates.map(function (c) { return [c[1], c[0]] })
+        }
+
+        function renderMapRoute() {
+          routeLayer.clearLayers()
+          if (selectedOrder.length === 0) return
+
+          var idaColor = "#2563eb"
+          var vueltaColor = "#f59e0b"
+
+          // Si tenemos ruta real con geometrías separadas de ida y vuelta
+          if (realRoute.status === "ready" && realRoute.idaGeometry && realRoute.vueltaGeometry) {
+            // IDA: línea azul continua
+            var idaCoords = geoJsonToLatLngs(realRoute.idaGeometry)
+            if (idaCoords.length > 1) {
+              L.polyline(idaCoords, {
+                color: idaColor,
+                weight: 5,
+                opacity: 0.9,
+                lineJoin: "round",
+                lineCap: "round",
+              }).addTo(routeLayer)
+            }
+            // VUELTA: línea naranja discontinua
+            var vueltaCoords = geoJsonToLatLngs(realRoute.vueltaGeometry)
+            if (vueltaCoords.length > 1) {
+              L.polyline(vueltaCoords, {
+                color: vueltaColor,
+                weight: 4,
+                opacity: 0.9,
+                dashArray: "8 8",
+                lineJoin: "round",
+                lineCap: "round",
+              }).addTo(routeLayer)
+            }
+            return
+          }
+
+          // Fallback: línea recta por coordenadas
+          var routePoints = [[COORDS[0][0], COORDS[0][1]]].concat(
+            selectedOrder.map(function (idx) { return [COORDS[idx][0], COORDS[idx][1]] }),
+            [[COORDS[0][0], COORDS[0][1]]]
+          )
+          if (routePoints.length < 2) return
+
+          var idaPoints = routePoints.slice(0, selectedOrder.length + 1)
+          var vueltaPoints = routePoints.slice(routePoints.length - 2, routePoints.length)
+
+          if (idaPoints.length >= 2) {
+            L.polyline(idaPoints, {
+              color: idaColor, weight: 4, opacity: 0.75, dashArray: "6 6",
+              lineJoin: "round", lineCap: "round",
+            }).addTo(routeLayer)
+          }
+          if (vueltaPoints.length >= 2) {
+            L.polyline(vueltaPoints, {
+              color: vueltaColor, weight: 4, opacity: 0.75, dashArray: "6 6",
+              lineJoin: "round", lineCap: "round",
+            }).addTo(routeLayer)
+          }
+        }
+
+        function getAllBounds() {
+          var bounds = L.latLngBounds([])
+          for (var i = 0; i < COORDS.length; i++) {
+            bounds.extend([COORDS[i][0], COORDS[i][1]])
+          }
+          return bounds
+        }
+
+        function fitAllDestinations(padding) {
+          var bounds = getAllBounds()
+          if (bounds.isValid()) {
+            map.fitBounds(bounds, {
+              paddingTopLeft: padding || [20, 20],
+              paddingBottomRight: [20, 20],
+              maxZoom: 13,
+              animate: false,
+            })
+          }
+        }
+
+        function resizeAndDrawMap(shouldFit) {
+          if (!map) return
+          requestAnimationFrame(function () {
+            map.invalidateSize({ animate: false })
+            if (shouldFit && !boundsFittedOnce) {
+              fitAllDestinations([20, 20])
+              boundsFittedOnce = true
+            }
+            renderMapMarkers()
+            renderMapRoute()
+            mapLoading.style.display = "none"
+          })
+        }
+
+        // ===================================================================
+        // 9. CONEXIÓN
+        // ===================================================================
+        function setDestinationOperationsEnabled(enabled) {
+          document.querySelectorAll(".requires-online").forEach(function(el){ el.disabled = !enabled })
+          var nuevoNombreEl = document.getElementById("nuevoNombre")
+          if (nuevoNombreEl) nuevoNombreEl.disabled = !enabled
+          document.querySelectorAll('#checkboxGrid input[type="checkbox"]').forEach(function(el){ el.disabled = !enabled })
+          document.querySelectorAll('#matrixTable input[type="number"]').forEach(function(el){ el.disabled = !enabled || el.classList.contains("diag") })
+          if (connectionBanner) connectionBanner.classList.toggle("visible", !enabled)
+          if (!enabled && coordModal && coordModal.classList.contains("open")) cerrarEditorCoordenadas()
+        }
+
+        function updateConnectionStatus(online) {
+          setDestinationOperationsEnabled(online)
+          if (online) {
+            offlineWarning.classList.remove("visible")
+            offlineWarning.style.display = "none"
+            if (!map.hasLayer(osmLayer)) map.addLayer(osmLayer)
+            programarRutaReal()
+            setTimeout(function () {
+              resizeAndDrawMap(false)
+              centrarMapaEnRuta()
+            }, 200)
+          } else {
+            if (map.hasLayer(osmLayer)) map.removeLayer(osmLayer)
+            offlineWarning.classList.add("visible")
+            offlineWarning.style.display = "flex"
+            mapLoading.style.display = "none"
+            realRoute.status = "offline"
+            setRouteStatus("📐 Sin conexión: cálculo local por coordenadas (Haversine)", false)
+            actualizarResultadosDesdeRutaReal()
+            renderMapRoute()
+          }
+        }
+
+        var isOnline = navigator.onLine
+        updateConnectionStatus(isOnline)
+
+        window.addEventListener("online", function () { updateConnectionStatus(true) })
+        window.addEventListener("offline", function () { updateConnectionStatus(false) })
+
+        retryBtn.addEventListener("click", function () {
+          if (navigator.onLine) {
+            updateConnectionStatus(true)
+          } else {
+            offlineWarning.querySelector("p").textContent =
+              "Aún no hay conexión. Verifica tu red y vuelve a intentarlo."
+            setTimeout(function () {
+              offlineWarning.querySelector("p").textContent =
+                "El mapa y las operaciones sobre la lista de destinos están bloqueados hasta recuperar la conexión."
+            }, 3000)
+          }
+        })
+
+        // ===================================================================
+        // 10. EXPANSIÓN
+        // ===================================================================
+        async function toggleMapFullscreen() {
+          try {
+            if (!document.fullscreenElement) {
+              if (mapContainer.requestFullscreen) await mapContainer.requestFullscreen()
+              else {
+                isExpanded = true
+                mapContainer.classList.add("expanded")
+                document.body.classList.add("map-expanded")
+              }
+            } else if (document.exitFullscreen) {
+              await document.exitFullscreen()
+            }
+          } catch (error) {
+            isExpanded = !isExpanded
+            mapContainer.classList.toggle("expanded", isExpanded)
+            document.body.classList.toggle("map-expanded", isExpanded)
+          }
+          setTimeout(function () {
+            isExpanded = !!document.fullscreenElement || mapContainer.classList.contains("expanded")
+            mapContainer.classList.toggle("expanded", isExpanded)
+            document.body.classList.toggle("map-expanded", isExpanded)
+            expandBtn.textContent = isExpanded ? "⤡" : "⤢"
+            expandBtn.title = isExpanded ? "Salir de pantalla completa" : "Expandir mapa a pantalla completa"
+            expandBtn.setAttribute("aria-label", expandBtn.title)
+            resizeAndDrawMap(false)
+            centrarMapaEnRuta()
+          }, 200)
+        }
+        expandBtn.addEventListener("click", toggleMapFullscreen)
+        posicionarBotonExpansion()
+        document.addEventListener("fullscreenchange", function () {
+          isExpanded = !!document.fullscreenElement
+          mapContainer.classList.toggle("expanded", isExpanded)
+          document.body.classList.toggle("map-expanded", isExpanded)
+          expandBtn.textContent = isExpanded ? "⤡" : "⤢"
+          expandBtn.title = isExpanded ? "Salir de pantalla completa" : "Expandir mapa a pantalla completa"
+          setTimeout(function () { resizeAndDrawMap(false); centrarMapaEnRuta() }, 200)
+        })
+
+        // ===================================================================
+        // ===================================================================
+        // 11. AGREGAR DESTINO: búsqueda robusta + provincia fija
+        // ===================================================================
+        function limpiarCandidatos() { if (geocodeCandidates) geocodeCandidates.innerHTML = "" }
+
+        function normalizarTexto(texto) {
+          return String(texto || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        }
+
+        function obtenerProvinciaPermitida(address) {
+          var partes = [address && address.state, address && address.county, address && address.state_district, address && address.region]
+          var texto = normalizarTexto(partes.filter(Boolean).join(" | "))
+          if (texto.indexOf("santiago de cuba") !== -1) return "Santiago de Cuba"
+          if (texto.indexOf("guantanamo") !== -1) return "Guantánamo"
+          return null
+        }
+
+        async function buscarDestinosGeocodificados(nombre) {
+          var base = nombre.trim()
+          var provinciasPermitidas = ["Santiago de Cuba", "Guantánamo"]
+          var consultas = []
+          provinciasPermitidas.forEach(function (provincia) {
+            consultas.push(base + ", " + provincia + ", Cuba")
+          })
+          // También hacemos una búsqueda general en Cuba para recuperar lugares
+          // que Nominatim encuentre mejor sin la provincia en la consulta.
+          consultas.push(base + ", Cuba")
+
+          var all = []
+          for (var q = 0; q < consultas.length; q++) {
+            var url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=10&addressdetails=1&countrycodes=cu&q=" + encodeURIComponent(consultas[q])
+            var response = await fetch(url, { headers: { Accept: "application/json" }, cache: "no-store" })
+            if (!response.ok) throw new Error("HTTP " + response.status)
+            var data = await response.json()
+            if (!Array.isArray(data)) continue
+
+            data.forEach(function (r) {
+              var lat = parseFloat(r.lat), lon = parseFloat(r.lon)
+              if (!isFinite(lat) || !isFinite(lon)) return
+
+              var provinciaDetectada = obtenerProvinciaPermitida(r.address || {})
+              if (!provinciaDetectada) {
+                var textoUbicacion = normalizarTexto((r.display_name || "") + " " + consultas[q])
+                if (textoUbicacion.indexOf("santiago de cuba") !== -1) provinciaDetectada = "Santiago de Cuba"
+                else if (textoUbicacion.indexOf("guantanamo") !== -1) provinciaDetectada = "Guantánamo"
+              }
+              // En la búsqueda general no aceptamos resultados cuya provincia
+              // no pueda verificarse como una de las dos permitidas.
+              if (!provinciaDetectada) return
+
+              var key = lat.toFixed(6) + ":" + lon.toFixed(6)
+              if (!all.some(function (x) { return x.key === key })) {
+                all.push({
+                  key:key,
+                  lat:lat,
+                  lon:lon,
+                  display:r.display_name || consultas[q],
+                  type:r.type || "",
+                  importance:parseFloat(r.importance)||0,
+                  provincia:provinciaDetectada
+                })
+              }
+            })
+          }
+
+          all.sort(function(a,b) { return b.importance - a.importance })
+          return all.slice(0,8)
+        }
+
+        function mostrarCandidatos(candidatos) {
+          limpiarCandidatos()
+          if (!geocodeCandidates || !candidatos.length) return
+          candidatos.slice(0,5).forEach(function (c, pos) {
+            var b = document.createElement("button")
+            b.type = "button"
+            b.className = "geocode-candidate" + (pos === 0 ? " selected" : "")
+            var title = (c.display.split(",")[0] || c.display)
+            b.innerHTML = '<span class="candidate-title">' + (pos + 1) + ". " + title + '</span><span class="candidate-detail">' + c.display + '</span><span class="candidate-detail" style="font-weight:700">Provincia: ' + c.provincia + "</span>"
+            b.title = c.display
+            b.addEventListener("click", function () {
+              candidatoSeleccionado = c
+              inputLat.value = c.lat.toFixed(6); inputLon.value = c.lon.toFixed(6)
+              Array.prototype.forEach.call(geocodeCandidates.children, function (el) { el.classList.remove("selected") })
+              b.classList.add("selected")
+              setGeocodeStatus('✓ Ubicación seleccionada. Pulsa "Agregar destino" para incorporarla.', "ok")
+            })
+            geocodeCandidates.appendChild(b)
+          })
+        }
+
+        var candidatosActuales = []
+        var candidatoSeleccionado = null
+
+        async function buscarNuevoDestino() {
+          var nombre = (inputNombre.value || "").trim()
+          if (!nombre) { setGeocodeStatus("Escribe el nombre del destino.", "error"); return }
+          for (var i = 0; i < DESTINOS.length; i++) {
+            if (DESTINOS[i].toLowerCase() === nombre.toLowerCase()) { setGeocodeStatus("Ese destino ya existe.", "error"); return }
+          }
+          if (!navigator.onLine) { setGeocodeStatus("Necesitas conexión para localizar y agregar un destino.", "error"); return }
+          limpiarCandidatos(); candidatoSeleccionado = null; candidatosActuales = []
+          setGeocodeStatus('🔎 Buscando "' + nombre + '" únicamente en Santiago de Cuba y Guantánamo…', "loading")
+          btnBuscar.disabled = true
+          try {
+            candidatosActuales = await buscarDestinosGeocodificados(nombre)
+            if (!candidatosActuales.length) throw new Error("No se encontró una ubicación")
+            candidatoSeleccionado = candidatosActuales[0]
+            inputLat.value = candidatoSeleccionado.lat.toFixed(6); inputLon.value = candidatoSeleccionado.lon.toFixed(6)
+            mostrarCandidatos(candidatosActuales)
+            btnAgregar.style.display = "inline-block"
+            setGeocodeStatus("✓ Se encontraron " + candidatosActuales.length + " ubicaciones. Revisa las opciones y agrega la correcta.", "ok")
+          } catch (error) {
+            setGeocodeStatus("⚠ " + error.message + ". Prueba con otro nombre o agrega más contexto.", "error")
+          } finally { btnBuscar.disabled = !navigator.onLine }
+        }
+
+        function agregarDestinoSeleccionado() {
+          if (!navigator.onLine || !candidatoSeleccionado) { setGeocodeStatus("Selecciona primero una ubicación encontrada.", "error"); return false }
+          var nombre = (inputNombre.value || "").trim()
+          var provincia = candidatoSeleccionado.provincia
+          if (!nombre) return false
+          for (var i = 0; i < DESTINOS.length; i++) if (DESTINOS[i].toLowerCase() === nombre.toLowerCase()) { setGeocodeStatus("Ese destino ya existe.", "error"); return false }
+          DESTINOS.push(nombre)
+          COORDS.push([candidatoSeleccionado.lat, candidatoSeleccionado.lon])
+          PROVINCIA_FIJA[nombre] = provincia
+          N = DESTINOS.length
+          distMatrix = computeDistanceMatrix()
+          selectedOrder = []
+          actualizarTodo(true)
+          setGeocodeStatus("✓ " + nombre + " agregado a " + provincia + ". Calculando matriz vial…", "ok")
+          inputNombre.value = ""; inputLat.value = ""; inputLon.value = ""; candidatoSeleccionado = null; candidatosActuales = []
+          limpiarCandidatos(); btnAgregar.style.display = "none"
+          actualizarMatrizPorCarretera().then(function(){ fitAllDestinations([20,20]) })
+          return true
+        }
+
+        function setGeocodeStatus(message, type) {
+          if (!geocodeStatus) return
+          geocodeStatus.textContent = message || ""
+          geocodeStatus.className = "geocode-status" + (type ? " " + type : "")
+        }
+
+        // ===================================================================
+        // 12. EXPORTAR / IMPORTAR CONFIGURACIÓN
+        // ===================================================================
+        function setConfigStatus(msg, error) {
+          if (!configStatus) return
+          configStatus.textContent = msg || ""
+          configStatus.style.color = error ? "#b42318" : "#4b6a86"
+        }
+
+        function exportarConfiguracion() {
+          var payload = {
+            app: "Rutas Optimicer", version: "23", exportedAt: new Date().toISOString(),
+            atributos: { rendimiento: getVal(rendimientoInput,8), factorCiudad:getVal(factorInput,1.15), precioDiesel:getVal(precioInput,2000) },
+            destinos: DESTINOS.slice(), coordenadas: COORDS.map(function(c){return [c[0],c[1]]}),
+            provincias: Object.assign({}, PROVINCIA_FIJA), matrizManual: Object.assign({}, matrixManual),
+            matrizDistancias: distMatrix.map(function(row){return row.slice()}), selectedOrder:selectedOrder.slice()
+          }
+          var blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"})
+          var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "rutas-optimicer-configuracion.json"; a.click();
+          setTimeout(function(){URL.revokeObjectURL(a.href)},500); setConfigStatus("✓ Configuración exportada.",false)
+        }
+
+        function importarConfiguracion(file) {
+          if (!navigator.onLine) { setConfigStatus("Sin conexión: importar configuración está bloqueado.",true); return }
+          var reader = new FileReader()
+          reader.onload = function() {
+            try {
+              var data = JSON.parse(reader.result)
+              if (!Array.isArray(data.destinos) || !Array.isArray(data.coordenadas) || data.destinos.length !== data.coordenadas.length || data.destinos.length < 1) throw new Error("Estructura de destinos inválida")
+              for (var i=0;i<data.coordenadas.length;i++) { if (!Array.isArray(data.coordenadas[i]) || !isFinite(Number(data.coordenadas[i][0])) || !isFinite(Number(data.coordenadas[i][1]))) throw new Error("Coordenadas inválidas en la fila " + (i+1)) }
+              DESTINOS = data.destinos.map(String)
+              COORDS = data.coordenadas.map(function(c){return [Number(c[0]),Number(c[1])]})
+              N = DESTINOS.length
+              PROVINCIA_FIJA = Object.assign({}, PROVINCIA_FIJA, data.provincias || {})
+              matrixManual = Object.assign({}, data.matrizManual || {})
+              if (data.atributos) { rendimientoInput.value=data.atributos.rendimiento ?? rendimientoInput.value; factorInput.value=data.atributos.factorCiudad ?? factorInput.value; precioInput.value=data.atributos.precioDiesel ?? precioInput.value }
+              distMatrix = computeDistanceMatrix()
+              if (Array.isArray(data.matrizDistancias) && data.matrizDistancias.length === N) {
+                for (var r=0;r<N;r++) if (Array.isArray(data.matrizDistancias[r]) && data.matrizDistancias[r].length===N) distMatrix[r]=data.matrizDistancias[r].map(Number)
+              }
+              selectedOrder=[]
+              renderCheckboxes(); actualizarTodo(true); programarMatrizVial(); fitAllDestinations([20,20])
+              setConfigStatus("✓ Configuración importada: " + N + " ubicaciones.",false)
+            } catch(e) { setConfigStatus("⚠ No se pudo importar: " + e.message,true) }
+          }
+          reader.onerror=function(){setConfigStatus("⚠ No se pudo leer el archivo.",true)}
+          reader.readAsText(file)
+        }
+
+        document.getElementById("btnExportarConfig").addEventListener("click", exportarConfiguracion)
+        document.getElementById("btnImportarConfig").addEventListener("click", function(){ if(navigator.onLine) document.getElementById("inputImportarConfig").click() })
+        document.getElementById("inputImportarConfig").addEventListener("change", function(){ if(this.files[0]) importarConfiguracion(this.files[0]); this.value="" })
+
+        // ===================================================================
+        // 12. TABS
+        // ===================================================================
+        var tabContainer = document.getElementById("tabContainer")
+        var tabBtns = tabContainer.querySelectorAll(".tab-btn")
+        var tabContents = {
+          ruta: document.getElementById("tab-ruta"),
+        }
+
+        tabBtns.forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var tabId = this.getAttribute("data-tab")
+            tabBtns.forEach(function (b) { b.classList.remove("active") })
+            this.classList.add("active")
+            Object.keys(tabContents).forEach(function (key) {
+              tabContents[key].classList.remove("active")
+            })
+            tabContents[tabId].classList.add("active")
+            if (tabId === "ruta") {
+              setTimeout(function () {
+                resizeAndDrawMap(false)
+                centrarMapaEnRuta()
+              }, 100)
+            }
+          })
+        })
+
+        // ===================================================================
+        // 13. INICIALIZACIÓN
+        // ===================================================================
+        ;[rendimientoInput, factorInput, precioInput].forEach(function (inp) {
+          inp.addEventListener("input", actualizarTodo)
+          inp.addEventListener("change", actualizarTodo)
+        })
+
+        var toggleBtn = document.getElementById("toggleInstructions")
+        var panel = document.getElementById("instructionsPanel")
+        toggleBtn.addEventListener("click", function () {
+          panel.classList.toggle("open")
+          toggleBtn.textContent = panel.classList.contains("open")
+            ? "📕 Ocultar instrucciones"
+            : "📖 Ver instrucciones"
+        })
+
+        var btnBuscar = document.getElementById("btnBuscarDestino")
+        var btnAgregar = document.getElementById("btnAgregarDestino")
+        var inputNombre = document.getElementById("nuevoNombre")
+        var inputLat = document.getElementById("nuevoLat")
+        var inputLon = document.getElementById("nuevoLon")
+        var geocodeStatus = document.getElementById("geocodeStatus")
+
+        btnBuscar.addEventListener("click", buscarNuevoDestino)
+        btnAgregar.addEventListener("click", agregarDestinoSeleccionado)
+
+        inputNombre.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") btnBuscar.click()
+        })
+
+        var resizeTimeout
+        window.addEventListener("resize", function () {
+          clearTimeout(resizeTimeout)
+          resizeTimeout = setTimeout(function () {
+            resizeAndDrawMap(false)
+            centrarMapaEnRuta()
+          }, 300)
+        })
+
+        setTimeout(function () {
+          map.invalidateSize({ animate: false })
+          resizeAndDrawMap(true)
+          fitAllDestinations([20, 20])
+        }, 150)
+
+        actualizarTodo(true)
+        console.log("✅ Aplicación lista. OSRM: rutas reales + matriz vial automática.")
+        console.log("📍 " + N + " ubicaciones (Base + " + (N - 1) + " destinos)")
+      })()
+    
+
+</script>
+  </body>
+</html>
