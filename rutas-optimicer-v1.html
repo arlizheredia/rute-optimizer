@@ -481,9 +481,11 @@
         width: 100%;
         height: 100%;
         background: #f0f0f0;
+        border-radius: 18px;
       }
       .leaflet-container {
         font-family: 'Segoe UI', Roboto, sans-serif !important;
+        border-radius: 18px;
       }
       .leaflet-popup-content-wrapper {
         border-radius: 12px;
@@ -990,8 +992,19 @@
         border-radius: 10px;
       }
       .matrix-scroll::-webkit-scrollbar-thumb:hover,
+      .matrix-scroll::-webkit-scrollbar-thumb:hover,
       .checkbox-grid::-webkit-scrollbar-thumb:hover {
         background: #a8bccf;
+      }
+
+      .pulse-marker-inner {
+        animation: pulse-animation 1.5s infinite;
+        border-radius: 50%;
+      }
+      @keyframes pulse-animation {
+        0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+        70% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
       }
     
 
@@ -2541,16 +2554,18 @@
           )
         }
 
+        // Estilo de marcadores mejorado con etiquetas numeradas
         function markerStyle(idx) {
           if (idx === 0) {
             return { radius: 10, color: "#ffffff", weight: 3, fillColor: "#1e293b", fillOpacity: 1 }
           }
-          var selected = selectedOrder.indexOf(idx) !== -1
+          var selectedPos = selectedOrder.indexOf(idx)
+          var isSelected = selectedPos !== -1
           return {
-            radius: selected ? 8 : 5,
+            radius: isSelected ? 10 : 5,
             color: "#ffffff",
-            weight: selected ? 2.5 : 1.5,
-            fillColor: selected ? "#3b82f6" : "#cbd5e1",
+            weight: isSelected ? 3 : 1.5,
+            fillColor: isSelected ? "#3b82f6" : "#cbd5e1",
             fillOpacity: 1,
           }
         }
@@ -2559,10 +2574,28 @@
           markerLayer.clearLayers()
           markerRefs = []
           for (var i = 0; i < COORDS.length; i++) {
-            var marker = L.circleMarker([COORDS[i][0], COORDS[i][1]], markerStyle(i))
+            var isSelected = selectedOrder.indexOf(i) !== -1
+            var marker
+            
+            if (isSelected) {
+              // Marcador con número para los seleccionados
+              var orderNum = selectedOrder.indexOf(i) + 1
+              var isLast = (orderNum === selectedOrder.length)
+              var divIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: '<div class="' + (isLast ? 'pulse-marker-inner' : '') + '" style="background:#3b82f6; color:white; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:bold; border:2px solid white; box-shadow:0 2px 4px rgba(0,0,0,0.2);">' + orderNum + '</div>',
+                iconSize: [22, 22],
+                iconAnchor: [11, 11]
+              })
+              marker = L.marker([COORDS[i][0], COORDS[i][1]], { icon: divIcon })
+            } else {
+              // Marcador simple para los no seleccionados
+              marker = L.circleMarker([COORDS[i][0], COORDS[i][1]], markerStyle(i))
+            }
+
             marker.bindTooltip(
-              nombreVisible(i) + (i === 0 ? " · Base" : (selectedOrder.indexOf(i) !== -1 ? " · #" + (selectedOrder.indexOf(i) + 1) : "")),
-              { direction: "top", offset: [0, -8], opacity: 0.95, sticky: false }
+              nombreVisible(i) + (i === 0 ? " · Base" : (isSelected ? " · #" + (selectedOrder.indexOf(i) + 1) : "")),
+              { direction: "top", offset: [0, -10], opacity: 0.95, sticky: false }
             )
             marker.bindPopup(popupHtml(i))
             marker.addTo(markerLayer)
@@ -2576,42 +2609,49 @@
           return geometry.coordinates.map(function (c) { return [c[1], c[0]] })
         }
 
+        // Función auxiliar para dibujar flechas en polilíneas
+        function drawArrows(map, latlngs, color, isDashed) {
+          var arrowLayer = L.layerGroup()
+          var step = Math.max(Math.floor(latlngs.length / 5), 1)
+          
+          for (var i = 0; i < latlngs.length - 1; i += step) {
+            var p1 = latlngs[i]
+            var p2 = latlngs[i + 1]
+            var angle = Math.atan2(p2[0] - p1[0], p2[1] - p1[1]) * 180 / Math.PI
+            
+            var arrow = L.divIcon({
+              className: 'route-arrow',
+              html: '<div style="transform: rotate(' + (-angle + 90) + 'deg); color:' + color + '; font-size:12px;">➤</div>',
+              iconSize: [12, 12],
+              iconAnchor: [6, 6]
+            })
+            L.marker(p1, { icon: arrow, interactive: false }).addTo(arrowLayer)
+          }
+          return arrowLayer
+        }
+
         function renderMapRoute() {
           routeLayer.clearLayers()
           if (selectedOrder.length === 0) return
 
-          var idaColor = "#3b82f6" // Azul vibrante
-          var vueltaColor = "#f59e0b" // Naranja suave
+          var idaColor = "#3b82f6"
+          var vueltaColor = "#f59e0b"
 
-          // Si tenemos ruta real con geometrías separadas de ida y vuelta
           if (realRoute.status === "ready" && realRoute.idaGeometry && realRoute.vueltaGeometry) {
-            // IDA: línea azul continua con sombra
             var idaCoords = geoJsonToLatLngs(realRoute.idaGeometry)
-            if (idaCoords.length > 1) {
-              L.polyline(idaCoords, {
-                color: idaColor,
-                weight: 6,
-                opacity: 0.8,
-                lineJoin: "round",
-                lineCap: "round"
-              }).addTo(routeLayer)
-            }
-            // VUELTA: línea naranja discontinua
             var vueltaCoords = geoJsonToLatLngs(realRoute.vueltaGeometry)
+            
+            if (idaCoords.length > 1) {
+              L.polyline(idaCoords, { color: idaColor, weight: 6, opacity: 0.8 }).addTo(routeLayer)
+              drawArrows(map, idaCoords, idaColor, false).addTo(routeLayer)
+            }
             if (vueltaCoords.length > 1) {
-              L.polyline(vueltaCoords, {
-                color: vueltaColor,
-                weight: 5,
-                opacity: 0.8,
-                dashArray: "10 12",
-                lineJoin: "round",
-                lineCap: "round"
-              }).addTo(routeLayer)
+              L.polyline(vueltaCoords, { color: vueltaColor, weight: 5, opacity: 0.8, dashArray: "10 12" }).addTo(routeLayer)
+              drawArrows(map, vueltaCoords, vueltaColor, true).addTo(routeLayer)
             }
             return
           }
-
-          // Fallback: línea recta por coordenadas
+          
           var routePoints = [[COORDS[0][0], COORDS[0][1]]].concat(
             selectedOrder.map(function (idx) { return [COORDS[idx][0], COORDS[idx][1]] }),
             [[COORDS[0][0], COORDS[0][1]]]
@@ -2626,12 +2666,14 @@
               color: idaColor, weight: 4, opacity: 0.75, dashArray: "6 6",
               lineJoin: "round", lineCap: "round",
             }).addTo(routeLayer)
+            drawArrows(map, idaPoints, idaColor, false).addTo(routeLayer)
           }
           if (vueltaPoints.length >= 2) {
             L.polyline(vueltaPoints, {
               color: vueltaColor, weight: 4, opacity: 0.75, dashArray: "6 6",
               lineJoin: "round", lineCap: "round",
             }).addTo(routeLayer)
+            drawArrows(map, vueltaPoints, vueltaColor, true).addTo(routeLayer)
           }
         }
 
